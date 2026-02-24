@@ -1,0 +1,50 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --foreground: 255 255 255;
+  --background: 10 10 10;
+  --accent: 220 38 38;
+}
+
+body {
+  color: rgb(var(--foreground));
+  background: rgb(var(--background));
+}
+
+@layer utilities {
+  .border-accent {
+    border-color: #dc2626;
+  }
+  
+  .bg-accent {
+    background-color: #dc2626;
+  }
+  
+  .text-accent {
+    color: #dc2626;
+  }
+  
+  .hover-bg-accent:hover {
+    background-color: #dc2626;
+  }
+}
+
+/* Brutalist scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0a0a0a;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #dc2626;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #b91c1c;
+}
