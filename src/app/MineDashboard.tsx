@@ -130,12 +130,27 @@ export function MineDashboard() {
     : inReveal  ? `reveal · ${formatCountdown(revealLeft)}`
     : "settling…" : "—";
 
-  // Current round question — show parsed JSON question text if inscription revealed
-  const parseQ = (uri?: string) => {
-    if (!uri) return null;
-    try { return (JSON.parse(uri) as any).question ?? uri; } catch { return uri; }
-  };
-  const question = parseQ(cur?.questionUri);
+  // Current and previous round questions — fetched from /api/questions/[roundId]
+  const [curQuestion, setCurQuestion]   = useState<string | null>(null);
+  const [prevQuestion, setPrevQuestion] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!cur?.roundId) return;
+    fetch(`/api/questions/${cur.roundId}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => d?.question ? setCurQuestion(d.question) : setCurQuestion(cur.questionUri))
+      .catch(() => setCurQuestion(cur.questionUri));
+  }, [cur?.roundId]);
+
+  useEffect(() => {
+    if (!prev?.roundId) return;
+    fetch(`/api/questions/${prev.roundId}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => d?.question ? setPrevQuestion(d.question) : setPrevQuestion(prev.questionUri))
+      .catch(() => setPrevQuestion(prev.questionUri));
+  }, [prev?.roundId]);
+
+  const question = curQuestion;
 
   return (
     <div style={{ minHeight: "100vh" }}>
@@ -234,7 +249,7 @@ export function MineDashboard() {
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
             <div>
               <div style={{ fontSize: 10, color: "#444", marginBottom: 5, letterSpacing: "0.05em" }}>QUESTION</div>
-              <div style={{ fontSize: 13, color: "#888", lineHeight: 1.5 }}>{parseQ(prev?.questionUri) ?? "—"}</div>
+              <div style={{ fontSize: 13, color: "#888", lineHeight: 1.5 }}>{prevQuestion ?? prev?.questionUri ?? "—"}</div>
             </div>
             <div>
               <div style={{ fontSize: 10, color: "#444", marginBottom: 5, letterSpacing: "0.05em" }}>ANSWER</div>
