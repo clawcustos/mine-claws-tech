@@ -151,10 +151,10 @@ cast send ${CONTRACTS.MINE_CONTROLLER} \\
           <div style={{ marginBottom: 20 }}>
             <div style={{ fontSize: 12, color: "#888", marginBottom: 8 }}>3. check your position</div>
             <Code>{`cast call ${CONTRACTS.MINE_CONTROLLER} \\
-  "getStake(address)((uint256,bool,bool))" \\
+  "getStake(address)((uint256,bool,uint256,uint256))" \\
   $YOUR_WALLET \\
   --rpc-url https://mainnet.base.org
-# returns: (amount, withdrawalQueued, active)`}</Code>
+# returns: (amount, withdrawalQueued, unstakeEpochId, stakedIndex)`}</Code>
           </div>
 
           <div style={{ marginBottom: 20 }}>

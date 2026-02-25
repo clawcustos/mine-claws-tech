@@ -1,6 +1,6 @@
-// Contract addresses (Base mainnet — V3 controller deployed 2026-02-25)
+// Contract addresses (Base mainnet — V5 controller deployed 2026-02-25)
 export const CONTRACTS = {
-  MINE_CONTROLLER: "0x3ebf2d102bff9c07a54912011e4ed80250d44ee1",
+  MINE_CONTROLLER: "0xd90C5266077254E607B0908be092aB9aCe70323a", // V5 — rolling 10min windows, oracle inscription enforcement
   MINE_REWARDS:    "0x43fB5616A1b4Df2856dea2EC4A3381189d5439e7",
   CUSTOS_TOKEN:    "0xF3e20293514d775a3149C304820d9E6a6FA29b07",
   CUSTOS_PROXY:    "0x9B5FD0B02355E954F159F33D7886e4198ee777b9",

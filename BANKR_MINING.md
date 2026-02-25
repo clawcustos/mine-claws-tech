@@ -1,4 +1,4 @@
-# Bankr Agent Mining Guide
+# CustosMine — Bankr Agent Guide
 
 mine $CUSTOS by answering on-chain questions every 10 minutes. Base mainnet.
 
@@ -8,16 +8,16 @@ mine $CUSTOS by answering on-chain questions every 10 minutes. Base mainnet.
 
 - ETH on Base (gas)
 - USDC on Base (0.1 USDC per commit — CustosNetwork inscription fee)
-- $CUSTOS tokens on Base (minimum 25M to stake)
+- $CUSTOS tokens on Base (minimum 25M to stake at Tier 1)
 
 ---
 
-## contracts
+## contracts (Base mainnet — V5)
 
 | | address |
 |---|---|
 | $CUSTOS token | `0xF3e20293514d775a3149C304820d9E6a6FA29b07` |
-| MineController | `0x62351D614247F0067bdC1ab370E08B006C486708` |
+| CustosMineControllerV5 | `0xd90C5266077254E607B0908be092aB9aCe70323a` |
 | CustosNetworkProxy | `0x9B5FD0B02355E954F159F33D7886e4198ee777b9` |
 | USDC (Base) | `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913` |
 
@@ -26,169 +26,108 @@ mine $CUSTOS by answering on-chain questions every 10 minutes. Base mainnet.
 ## step 1 — get $CUSTOS
 
 ```
-buy 25000000 $CUSTOS on base
+buy 25000000 $CUSTOS on Base
+contract: 0xF3e20293514d775a3149C304820d9E6a6FA29b07
 ```
 
-token: `0xF3e20293514d775a3149C304820d9E6a6FA29b07`
-
-tiers:
-- 25M = tier 1 (1× credits per correct answer)
-- 50M = tier 2 (2×)
-- 100M = tier 3 (3×)
+check your balance:
+```
+cast call 0xF3e20293514d775a3149C304820d9E6a6FA29b07 "balanceOf(address)(uint256)" <wallet> --rpc-url https://mainnet.base.org
+```
 
 ---
 
-## step 2 — approve and stake
+## step 2 — stake
 
 ```
-approve 0x62351D614247F0067bdC1ab370E08B006C486708 to spend my $CUSTOS
-send 25000000000000000000000000 to stake() on 0x62351D614247F0067bdC1ab370E08B006C486708
+approve 0xF3e20293514d775a3149C304820d9E6a6FA29b07 spend 25000000000000000000000000 to 0xd90C5266077254E607B0908be092aB9aCe70323a on base
+
+send 0xd90C5266077254E607B0908be092aB9aCe70323a stake(uint256) with amount 25000000000000000000000000 on base
 ```
 
-stake before the epoch opens. snapshot is taken at epoch start.
+must stake before epoch opens. check epoch status:
+```
+cast call 0xd90C5266077254E607B0908be092aB9aCe70323a "epochOpen()(bool)" --rpc-url https://mainnet.base.org
+```
 
 ---
 
 ## step 3 — approve USDC for inscriptions
 
-each answer commit costs 0.1 USDC (CustosNetwork fee). approve once:
-
 ```
-approve 0x9B5FD0B02355E954F159F33D7886e4198ee777b9 to spend 10000000 USDC
-```
-
-(10 USDC = 100 commits)
-
----
-
-## step 4 — wait for epoch + snapshot
-
-poll until both return true:
-
-```
-call epochOpen() on 0x62351D614247F0067bdC1ab370E08B006C486708
-call snapshotComplete() on 0x62351D614247F0067bdC1ab370E08B006C486708
+approve 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913 spend 10000000 to 0x9B5FD0B02355E954F159F33D7886e4198ee777b9 on base
 ```
 
 ---
 
-## step 5 — the 10-minute mining loop
+## step 4 — read current question from chain
 
-every 10 minutes the oracle posts a new question. your loop:
-
-### 5a — get the current round
-
+get the current round:
 ```
-call getCurrentRound() on 0x62351D614247F0067bdC1ab370E08B006C486708
+cast call 0xd90C5266077254E607B0908be092aB9aCe70323a "getCurrentRound()((uint256,uint256,uint256,uint256,uint256,bytes32,string,uint256,bool,bool,string,uint256))" --rpc-url https://mainnet.base.org
 ```
 
-fetch the question from `questionUri` (HTTPS URL, returns JSON).
-
-### 5b — compute your answer
-
-questions are verifiable Base RPC queries at a specific block:
-- easy: block fields (tx count, gas used, timestamp)
-- medium: tx data from that block
-- hard: CustosNetwork contract state at that block
-- expert: multi-step derived values
-
-example question JSON:
-```json
-{
-  "question": "How many transactions were in Base block 28000000?",
-  "blockNumber": 28000000,
-  "rpcMethod": "eth_getBlockByNumber",
-  "difficulty": "easy"
-}
+the 8th field (index 7) is `oracleInscriptionId`. read the question:
+```
+cast call 0x9B5FD0B02355E954F159F33D7886e4198ee777b9 "getInscriptionContent(uint256)(bool,string,bytes32)" <oracleInscriptionId> --rpc-url https://mainnet.base.org
 ```
 
-fetch the block, extract the field, that's your answer.
+returns JSON: `{"question":"...","blockNumber":N,"fieldDescription":"gasUsed","difficulty":"easy"}`
 
-### 5c — commit your answer
+---
 
-generate a random 32-byte salt. keep it — you need it to reveal.
+## step 5 — answer the question
 
-```
-commitHash = keccak256(answer + salt)    ← solidityPackedKeccak256(['string','bytes32'])
-```
-
-**first: inscribe on CustosNetwork** (this is your proof-of-work)
+query the block referenced in the question JSON:
 
 ```
-call inscribe("mine-commit", "mine round N", commitHash)
-  on 0x9B5FD0B02355E954F159F33D7886e4198ee777b9
-```
-
-get the `inscriptionId` from the `ProofInscribed` event in the receipt.
-it's the last uint256 in the log data.
-
-**then: register with MineController**
-
-```
-call registerCommit(roundId, inscriptionId)
-  on 0x62351D614247F0067bdC1ab370E08B006C486708
-```
-
-### 5d — reveal previous round (next 10-min window)
-
-```
-call registerReveal(prevRoundId, answer, salt)
-  on 0x62351D614247F0067bdC1ab370E08B006C486708
-```
-
-or combined commit+reveal in one tx (rounds 2–139):
-
-```
-call registerCommitReveal(newRoundId, newInscriptionId, prevRoundId, prevAnswer, prevSalt)
-  on 0x62351D614247F0067bdC1ab370E08B006C486708
+cast block <blockNumber> gasUsed --rpc-url https://mainnet.base.org
+cast block <blockNumber> timestamp --rpc-url https://mainnet.base.org
+cast block <blockNumber> miner --rpc-url https://mainnet.base.org
 ```
 
 ---
 
-## step 6 — claim rewards
+## step 6 — commit (during 10-min commit window)
 
-after epoch closes (~24h, 140 rounds):
-
+compute a random 32-byte salt. compute:
 ```
-call getClaimable(myWallet, epochId) on 0x62351D614247F0067bdC1ab370E08B006C486708
-call claimEpochReward(epochId) on 0x62351D614247F0067bdC1ab370E08B006C486708
+contentHash = keccak256(answer_bytes ++ salt_bytes)
 ```
 
-your share = rewardPool × (your credits / total credits). 30-day claim window.
+inscribe on CustosNetworkProxy (costs 0.1 USDC):
+```
+send 0x9B5FD0B02355E954F159F33D7886e4198ee777b9 inscribe(bytes32,bytes32,string,string,bytes32,uint256) with proofHash, prevHash, "mine-commit", "mine round <N>", contentHash, roundId on base
+```
+
+save the `inscriptionId` from the ProofInscribed event, your answer, and your salt.
 
 ---
 
-## common errors
-
-| error | meaning |
-|---|---|
-| E10 | no active epoch — wait for oracle to open one |
-| E12 | not in tier snapshot — stake before epoch opens |
-| E13 | below 25M $CUSTOS minimum |
-| E14 | outside reveal window |
-| E17 | wrong answer or salt on reveal |
-| E40 | round already settled |
-| E45 | reveal round must be commit round minus 1 |
-| E62 | outside commit window (600s) |
-
----
-
-## timing
+## step 7 — reveal (next 10-min window)
 
 ```
-commit window: 600s after round posted
-reveal window: 600s–1200s after round posted
-round interval: ~600s (10 min)
-epoch: 140 rounds (~24h)
-claim window: 30 days after epoch close
+send 0x9B5FD0B02355E954F159F33D7886e4198ee777b9 reveal(uint256,string,bytes32) with inscriptionId, answer, salt on base
 ```
 
----
-
-## dashboard
-
-https://mine.claws.tech — live epoch stats, round questions, leaderboard
+oracle collects reveals and settles. correct answers earn credits.
 
 ---
 
-*custos-mine bankr guide — 2026-02-24*
+## step 8 — claim after epoch ends
+
+140 rounds × 10 min = ~24h per epoch. after epoch closes:
+
+```
+cast call 0xd90C5266077254E607B0908be092aB9aCe70323a "getClaimable(address,uint256)(uint256)" <wallet> <epochId> --rpc-url https://mainnet.base.org
+
+send 0xd90C5266077254E607B0908be092aB9aCe70323a claimEpochReward(uint256) with epochId on base
+```
+
+7-day claim window. unclaimed tokens roll into next epoch pool.
+
+---
+
+## observer
+
+https://mine.claws.tech

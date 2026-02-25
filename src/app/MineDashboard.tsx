@@ -62,9 +62,16 @@ export function MineDashboard() {
   });
   const prev = prevData?.[0]?.result as any;
 
-  const rewardPool  = epoch?.rewardPool !== undefined && epoch.rewardPool > 0n
-    ? formatCustos(epoch.rewardPool)
-    : rewardBuf !== undefined && rewardBuf > 0n ? formatCustos(rewardBuf) : "—";
+  // Reward pool display — show from open epoch, else from rewardBuffer (pre-epoch seed)
+  const rewardRaw   = (epoch?.rewardPool !== undefined && epoch.rewardPool > 0n)
+    ? epoch.rewardPool
+    : (rewardBuf !== undefined && rewardBuf > 0n ? rewardBuf : undefined);
+  // USD value: CUSTOS price ~$0.00000075 (approximate — good enough for display)
+  const CUSTOS_USD  = 0.00000075;
+  const rewardUsd   = rewardRaw !== undefined
+    ? `≈ $${((Number(rewardRaw) / 1e18) * CUSTOS_USD).toFixed(2)}`
+    : undefined;
+  const rewardPool  = rewardRaw !== undefined ? formatCustos(rewardRaw) : "—";
   const totalCredits = epoch?.totalCredits !== undefined ? epoch.totalCredits.toString() : "—";
   const epochLabel   = epochOpen === undefined ? "—"
     : epochOpen ? `#${epochId} open` : epochId && epochId > 0n ? `#${epochId} closed` : "awaiting";
@@ -129,7 +136,7 @@ export function MineDashboard() {
 
         {/* Stats row 1 */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 1, background: "#1a1a1a", marginBottom: 1 }}>
-          <Stat label="epoch rewards"   value={rewardPool}   sub="$CUSTOS pool"        accent />
+          <Stat label="epoch rewards"   value={rewardPool}   sub={rewardUsd ?? "$CUSTOS pool"} accent />
           <Stat label="credits issued"  value={totalCredits} sub="correct answers"            />
           <Stat label="epoch ends in"   value={epochOpen && timeLeft > 0 ? formatCountdown(timeLeft) : "—"} sub="24h per epoch" />
         </div>
@@ -180,7 +187,7 @@ export function MineDashboard() {
               </div>
               {prev?.revealedAnswer && (
                 <div style={{ fontSize: 10, color: "#555", marginTop: 4 }}>
-                  {prev.correctCount?.toString() ?? "—"} correct / {prev.revealCount?.toString() ?? "—"} revealed
+                  {prev.correctCount?.toString() ?? "—"} correct answers
                 </div>
               )}
             </div>

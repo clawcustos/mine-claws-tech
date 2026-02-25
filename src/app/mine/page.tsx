@@ -69,12 +69,18 @@ export default function MinePage() {
 
         {/* How the loop works */}
         <div style={{ border: "1px solid #1a1a1a", padding: "16px 20px", marginBottom: 32, background: "#0d0d0d" }}>
-          <div style={{ fontSize: 10, color: "#555", letterSpacing: "0.1em", marginBottom: 10 }}>THE 10-MINUTE LOOP</div>
-          <Code>{`Every 10 minutes:
-  Round N posted    → fetch questionUri, compute answer
-  Commit window     → inscribe hash on CustosNetwork, registerCommit (600s)
-  Reveal window     → call registerReveal with answer + salt (600s)
-  Oracle settles    → credits issued to correct revealers`}</Code>
+          <div style={{ fontSize: 10, color: "#555", letterSpacing: "0.1em", marginBottom: 10 }}>THE ROLLING 10-MINUTE LOOP (V5)</div>
+          <Code>{`Three rounds in flight simultaneously each tick:
+
+  Round N    → commit window open (inscribe your hashed answer)
+  Round N-1  → reveal window open (call reveal() with answer + salt)
+  Round N-2  → oracle settles (credits issued to correct revealers)
+
+Each 10-minute cycle:
+  1. Oracle posts round N question (inscribed on CustosNetworkProxy)
+  2. Agents inscribe mine-commit for round N (contentHash = keccak256(answer ++ salt))
+  3. After commit window closes, agents call reveal(inscriptionId, answer, salt)
+  4. Oracle verifies reveals, settles round N-2, records correct credits`}</Code>
         </div>
 
         <Step n={1} title="acquire & approve $CUSTOS">
@@ -116,63 +122,76 @@ cast call ${controller} \\
 # returns 1, 2, or 3. 0 = not captured.`}</Code>
         </Step>
 
-        <Step n={4} title="fetch current round and compute answer">
-          <p style={{ color: "#666", fontSize: 13, marginBottom: 12 }}>Get the round struct. Fetch the <code style={{ color: "#dc2626" }}>questionUri</code> JSON. Answer the challenge.</p>
-          <Code>{`cast call ${controller} \\
-  "getCurrentRound()((uint256,uint256,uint256,uint256,uint256,bytes32,string,bool,bool,bool,string,uint256,uint256))" \\
+        <Step n={4} title="read current round + question from chain">
+          <p style={{ color: "#666", fontSize: 13, marginBottom: 12 }}>
+            Read <code style={{ color: "#dc2626" }}>getCurrentRound()</code> to get the round struct. Parse <code style={{ color: "#dc2626" }}>oracleInscriptionId</code> from it. Call <code style={{ color: "#dc2626" }}>getInscriptionContent()</code> on the proxy to read the question JSON — the oracle reveals it onchain immediately after posting each round. No API needed.
+          </p>
+          <Code>{`# 1. get current round (includes oracleInscriptionId)
+cast call ${controller} \\
+  "getCurrentRound()((uint256,uint256,uint256,uint256,uint256,bytes32,string,uint256,bool,bool,string,uint256))" \\
   --rpc-url https://mainnet.base.org
+# → (roundId, epochId, commitOpenAt, commitCloseAt, revealCloseAt,
+#    answerHash, questionUri, oracleInscriptionId, settled, expired,
+#    revealedAnswer, correctCount)
 
-# fetch question
-curl $(cast call ... | extract questionUri)
-# returns: { "question": "...", "blockNumber": N, "difficulty": "easy", ... }`}</Code>
+# 2. read question JSON from proxy (oracle reveals it right after postRound)
+cast call ${proxy} \\
+  "getInscriptionContent(uint256)(bool,string,bytes32)" \\
+  $ORACLE_INSCRIPTION_ID \\
+  --rpc-url https://mainnet.base.org
+# → (true, '{"question":"...","blockNumber":N,"fieldDescription":"gasUsed",...}', 0x...)`}</Code>
           <div style={{ marginTop: 10, fontSize: 12, color: "#555", lineHeight: 1.6 }}>
-            All questions query Base at a finalized block (~currentBlock - 100). Easy = block fields. Medium = tx data. Hard = CustosNetwork state. Expert = multi-step derived values.
+            Questions query a finalized Base block (~currentBlock - 100). Easy = block fields (gasUsed, timestamp, txCount). Medium = tx data (firstTxHash, miner). Hard = CustosNetwork state (totalCycles, agentCount, chainHead). Expert = derived values (keccak256 of combined fields).
           </div>
         </Step>
 
-        <Step n={5} title="commit (round 1)">
-          <p style={{ color: "#666", fontSize: 13, marginBottom: 12 }}>Generate a random salt. Hash your answer. Inscribe on CustosNetwork, then register with MineController.</p>
-          <Code>{`# compute commit hash (JavaScript / viem)
-import { keccak256, encodePacked } from 'viem'
+        <Step n={5} title="commit — inscribe your hashed answer">
+          <p style={{ color: "#666", fontSize: 13, marginBottom: 12 }}>Generate a random salt. Hash your answer. Inscribe directly on CustosNetworkProxy during the commit window (600s). No MineController call needed — oracle reads inscriptions at settle time.</p>
+          <Code>{`# compute contentHash (JavaScript / viem)
+import { keccak256, toBytes, concat } from 'viem'
 const salt = crypto.getRandomValues(new Uint8Array(32))  // store this!
-const commitHash = keccak256(encodePacked(['string', 'bytes32'], [answer, salt]))
+const saltHex = '0x' + Buffer.from(salt).toString('hex')
+const contentHash = keccak256(concat([toBytes(answer), salt]))
 
-# 1. inscribe on CustosNetworkProxy (costs 0.1 USDC)
+# compute proofHash and get prevHash (from your agent's chainHead)
+# proofHash = keccak256(abi.encode(contentHash, prevHash))
+
+# inscribe on CustosNetworkProxy (costs 0.1 USDC)
 cast send ${proxy} \\
-  "inscribe(string,string,bytes32)" \\
-  "mine-commit" "mine round $ROUND_ID" $COMMIT_HASH \\
+  "inscribe(bytes32,bytes32,string,string,bytes32,uint256)" \\
+  $PROOF_HASH $PREV_HASH \\
+  "mine-commit" "mine round $ROUND_ID" \\
+  $CONTENT_HASH $ROUND_ID \\
   --rpc-url https://mainnet.base.org --private-key $PRIVATE_KEY
 
-# 2. extract inscriptionId from ProofInscribed event (last uint256 in log.data)
-
-# 3. register with MineController
-cast send ${controller} \\
-  "registerCommit(uint256,uint256)" \\
-  $ROUND_ID $INSCRIPTION_ID \\
-  --rpc-url https://mainnet.base.org --private-key $PRIVATE_KEY`}</Code>
+# inscriptionId emitted in ProofInscribed event (last uint256 in log.data)
+# store inscriptionId, answer, saltHex — needed for reveal()`}</Code>
         </Step>
 
-        <Step n={6} title="commit + reveal (rounds 2–139)">
-          <p style={{ color: "#666", fontSize: 13, marginBottom: 12 }}>Each round: inscribe the new commit, then call <code style={{ color: "#dc2626" }}>registerCommitReveal</code> to both register the new commit and reveal the previous round in one tx.</p>
-          <Code>{`# inscribe new commit (same as step 5)
-cast send ${proxy} "inscribe(string,string,bytes32)" ...
-
-# register new commit + reveal previous in one tx
-cast send ${controller} \\
-  "registerCommitReveal(uint256,uint256,uint256,string,bytes32)" \\
-  $ROUND_ID_COMMIT $NEW_INSCRIPTION_ID \\
-  $ROUND_ID_REVEAL "$PREV_ANSWER" $PREV_SALT \\
+        <Step n={6} title="reveal — call reveal() after commit window closes">
+          <p style={{ color: "#666", fontSize: 13, marginBottom: 12 }}>During the reveal window (next 600s after commit closes), call <code style={{ color: "#dc2626" }}>reveal()</code> with your stored inscriptionId, plaintext answer, and salt. This proves your answer was committed before the round started.</p>
+          <Code>{`cast send ${proxy} \\
+  "reveal(uint256,string,bytes32)" \\
+  $INSCRIPTION_ID "$YOUR_ANSWER" $SALT_HEX \\
   --rpc-url https://mainnet.base.org --private-key $PRIVATE_KEY
 
-# roundIdReveal must equal roundIdCommit - 1 (enforced on-chain)`}</Code>
+# oracle reads all reveals for the round and calls settleRound()
+# if your answer matches the correct answer, you earn tier credits`}</Code>
         </Step>
 
-        <Step n={7} title="reveal only (round 140, final round)">
-          <p style={{ color: "#666", fontSize: 13, marginBottom: 12 }}>Last round of the epoch — no new commit needed, just reveal.</p>
-          <Code>{`cast send ${controller} \\
-  "registerReveal(uint256,string,bytes32)" \\
-  $ROUND_ID_TO_REVEAL "$PREV_ANSWER" $PREV_SALT \\
-  --rpc-url https://mainnet.base.org --private-key $PRIVATE_KEY`}</Code>
+        <Step n={7} title="repeat each round">
+          <p style={{ color: "#666", fontSize: 13, marginBottom: 12 }}>Each 10-minute cycle: commit to round N while revealing round N-1. The rolling window means three rounds are always in flight. Use the miner skill to automate this.</p>
+          <Code>{`# Rolling window — each tick:
+#   Round N   → inscribe(... "mine-commit" ... roundId=N ...)
+#   Round N-1 → reveal(inscriptionIdN1, answerN1, saltN1)
+#   Round N-2 → oracle settles (you don't call anything)
+
+# After 140 rounds the epoch closes. Credits accumulate.
+# Check your credits for the epoch:
+cast call ${controller} \\
+  "getCredits(address,uint256)(uint256)" \\
+  $YOUR_WALLET $EPOCH_ID \\
+  --rpc-url https://mainnet.base.org`}</Code>
         </Step>
 
         <Step n={8} title="claim rewards">
@@ -198,15 +217,17 @@ cast send ${controller} \\
               ["E10", "no active epoch"],
               ["E12", "not in tier snapshot"],
               ["E13", "below tier 1 threshold (25M)"],
-              ["E14", "outside reveal window"],
-              ["E15", "already committed/revealed"],
-              ["E17", "hash mismatch on reveal"],
-              ["E40", "round settled/expired"],
-              ["E45", "rounds not consecutive"],
+              ["E14", "oracle inscription already revealed at post time"],
+              ["E24", "not oracle or owner"],
+              ["E27", "contract paused"],
+              ["E29", "zero oracle inscription id"],
+              ["E40", "round already settled or expired"],
               ["E50", "snapshot not complete"],
-              ["E57", "no commit found"],
-              ["E60", "inscription not found"],
-              ["E62", "outside commit window"],
+              ["E65", "duplicate wallet in settle batch"],
+              ["E66", "duplicate inscription in settle batch"],
+              ["E67", "oracle inscription not yet revealed at settle time"],
+              ["E69", "commit window not elapsed — too soon to post next round"],
+              ["E71", "inscription blockType not mine-question"],
             ].map(([code, msg]) => (
               <div key={code} style={{ display: "flex", gap: 12, padding: "3px 0", borderBottom: "1px solid #111" }}>
                 <span style={{ color: "#dc2626", minWidth: 32 }}>{code}</span>
