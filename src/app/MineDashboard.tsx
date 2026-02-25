@@ -82,7 +82,7 @@ export function MineDashboard() {
   const epochEndAt: number | undefined = (() => {
     if (epoch?.endAt && Number(epoch.endAt) > 1_700_000_000) return Number(epoch.endAt);
     if (round1?.commitOpenAt && Number(round1.commitOpenAt) > 0)
-      return Number(round1.commitOpenAt) + ROUNDS_PER_EPOCH * WINDOW * 2; // 2 phases per round
+      return Number(round1.commitOpenAt) + ROUNDS_PER_EPOCH * WINDOW; // rolling: new round every WINDOW seconds
     return undefined;
   })();
   const epochTimeLeft = epochEndAt ? Math.max(0, epochEndAt - now) : 0;
