@@ -1,6 +1,7 @@
 "use client";
 
 import { useReadContracts } from "wagmi";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { CONTRACTS, BASESCAN, ROUNDS_PER_EPOCH } from "@/lib/constants";
 import { MINE_CONTROLLER_ABI } from "@/lib/abis";
@@ -9,6 +10,8 @@ import { formatCustos, formatCountdown } from "@/lib/utils";
 const SKILL_URL = "https://github.com/clawcustos/mine-claws-tech/blob/main/SKILL.md";
 const CA = CONTRACTS.CUSTOS_TOKEN;
 const c = { address: CONTRACTS.MINE_CONTROLLER as `0x${string}`, abi: MINE_CONTROLLER_ABI };
+const WINDOW = 600; // seconds per phase
+const CUSTOS_USD = 0.00000075;
 
 function Stat({ label, value, sub, accent }: { label: string; value: string; sub?: string; accent?: boolean }) {
   return (
@@ -21,7 +24,12 @@ function Stat({ label, value, sub, accent }: { label: string; value: string; sub
 }
 
 export function MineDashboard() {
-  const now = Math.floor(Date.now() / 1000);
+  // Live clock — ticks every second for countdowns
+  const [now, setNow] = useState(() => Math.floor(Date.now() / 1000));
+  useEffect(() => {
+    const id = setInterval(() => setNow(Math.floor(Date.now() / 1000)), 1000);
+    return () => clearInterval(id);
+  }, []);
 
   const { data } = useReadContracts({
     contracts: [
@@ -46,8 +54,7 @@ export function MineDashboard() {
     contracts: epochId && epochId > 0n ? [{ ...c, functionName: "getEpoch", args: [epochId] }] : [],
     query: { enabled: !!epochId && epochId > 0n, refetchInterval: 30_000 },
   });
-  const epoch    = epochData?.[0]?.result as any;
-  const timeLeft = epoch ? Math.max(0, Number(epoch.endAt) - now) : 0;
+  const epoch = epochData?.[0]?.result as any;
 
   const { data: curData } = useReadContracts({
     contracts: epochOpen && roundCount && roundCount > 0n ? [{ ...c, functionName: "getCurrentRound" }] : [],
@@ -55,39 +62,68 @@ export function MineDashboard() {
   });
   const cur = curData?.[0]?.result as any;
 
+  // Previous round (for settled answer display)
   const prevId = roundCount && roundCount > 1n ? roundCount - 1n : undefined;
   const { data: prevData } = useReadContracts({
     contracts: prevId ? [{ ...c, functionName: "getRound", args: [prevId] }] : [],
-    query: { enabled: !!prevId, refetchInterval: 30_000 },
+    query: { enabled: !!prevId, refetchInterval: 15_000 },
   });
   const prev = prevData?.[0]?.result as any;
 
-  // Reward pool display — show from open epoch, else from rewardBuffer (pre-epoch seed)
-  const rewardRaw   = (epoch?.rewardPool !== undefined && epoch.rewardPool > 0n)
+  // Round 1 — needed to derive epoch end when epoch.endAt is unreliable (startAt=0 bug)
+  const { data: r1Data } = useReadContracts({
+    contracts: epochOpen && roundCount && roundCount > 0n
+      ? [{ ...c, functionName: "getRound", args: [1n] }] : [],
+    query: { enabled: !!epochOpen && !!roundCount && roundCount! > 0n, refetchInterval: 60_000 },
+  });
+  const round1 = r1Data?.[0]?.result as any;
+
+  // Epoch end: use epoch.endAt if sane (> year 2024), else derive from round 1 commitOpenAt + 140*600s
+  const epochEndAt: number | undefined = (() => {
+    if (epoch?.endAt && Number(epoch.endAt) > 1_700_000_000) return Number(epoch.endAt);
+    if (round1?.commitOpenAt && Number(round1.commitOpenAt) > 0)
+      return Number(round1.commitOpenAt) + ROUNDS_PER_EPOCH * WINDOW * 2; // 2 phases per round
+    return undefined;
+  })();
+  const epochTimeLeft = epochEndAt ? Math.max(0, epochEndAt - now) : 0;
+
+  // Credits: epoch.totalCredits is only populated at epoch close.
+  // Mid-epoch: sum correctCount from all settled rounds (approximation — we only fetch cur+prev here).
+  // Show settled round count as proxy for "rounds with correct answers".
+  const settledRoundsWithAnswers =
+    (prev?.settled && prev?.correctCount > 0n ? 1 : 0) +
+    (cur?.settled  && cur?.correctCount  > 0n ? 1 : 0);
+  // True totalCredits once epoch closes
+  const totalCredits = epoch?.totalCredits !== undefined && epoch.totalCredits > 0n
+    ? epoch.totalCredits.toString()
+    : settledRoundsWithAnswers > 0 ? `${settledRoundsWithAnswers}+` : "0";
+
+  // Reward pool
+  const rewardRaw = (epoch?.rewardPool !== undefined && epoch.rewardPool > 0n)
     ? epoch.rewardPool
     : (rewardBuf !== undefined && rewardBuf > 0n ? rewardBuf : undefined);
-  // USD value: CUSTOS price ~$0.00000075 (approximate — good enough for display)
-  const CUSTOS_USD  = 0.00000075;
-  const rewardUsd   = rewardRaw !== undefined
-    ? `≈ $${((Number(rewardRaw) / 1e18) * CUSTOS_USD).toFixed(2)}`
-    : undefined;
-  const rewardPool  = rewardRaw !== undefined ? formatCustos(rewardRaw) : "—";
-  const totalCredits = epoch?.totalCredits !== undefined ? epoch.totalCredits.toString() : "—";
-  const epochLabel   = epochOpen === undefined ? "—"
+  const rewardUsd  = rewardRaw !== undefined
+    ? `≈ $${((Number(rewardRaw) / 1e18) * CUSTOS_USD).toFixed(2)}` : undefined;
+  const rewardPool = rewardRaw !== undefined ? formatCustos(rewardRaw) : "—";
+
+  const epochLabel = epochOpen === undefined ? "—"
     : epochOpen ? `#${epochId} open` : epochId && epochId > 0n ? `#${epochId} closed` : "awaiting";
 
+  // Window display — live countdown
+  const commitLeft = cur ? Math.max(0, Number(cur.commitCloseAt) - now) : 0;
+  const revealLeft = cur ? Math.max(0, Number(cur.revealCloseAt) - now) : 0;
+  const inCommit   = commitLeft > 0;
+  const inReveal   = !inCommit && revealLeft > 0;
+  const windowLabel = cur
+    ? inCommit  ? `commit · ${formatCountdown(commitLeft)}`
+    : inReveal  ? `reveal · ${formatCountdown(revealLeft)}`
+    : "settling…" : "—";
+
+  // Current round question — show parsed JSON question text if inscription revealed
   const parseQ = (uri?: string) => {
     if (!uri) return null;
     try { return (JSON.parse(uri) as any).question ?? uri; } catch { return uri; }
   };
-
-  const commitLeft = cur ? Math.max(0, Number(cur.commitCloseAt) - now) : 0;
-  const revealLeft = cur ? Math.max(0, Number(cur.revealCloseAt) - now) : 0;
-  const windowLabel = cur
-    ? commitLeft > 0 ? `commit · ${formatCountdown(commitLeft)}`
-    : revealLeft > 0 ? `reveal · ${formatCountdown(revealLeft)}`
-    : "settling…" : "—";
-
   const question = parseQ(cur?.questionUri);
 
   return (
@@ -136,16 +172,16 @@ export function MineDashboard() {
 
         {/* Stats row 1 */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 1, background: "#1a1a1a", marginBottom: 1 }}>
-          <Stat label="epoch rewards"   value={rewardPool}   sub={rewardUsd ?? "$CUSTOS pool"} accent />
-          <Stat label="credits issued"  value={totalCredits} sub="correct answers"            />
-          <Stat label="epoch ends in"   value={epochOpen && timeLeft > 0 ? formatCountdown(timeLeft) : "—"} sub="24h per epoch" />
+          <Stat label="epoch rewards"   value={rewardPool}     sub={rewardUsd ?? "$CUSTOS pool"} accent />
+          <Stat label="correct answers" value={totalCredits}   sub="across settled rounds" />
+          <Stat label="epoch ends in"   value={epochOpen && epochEndAt ? formatCountdown(epochTimeLeft) : "—"} sub={epochEndAt ? new Date(epochEndAt * 1000).toUTCString().replace(" GMT", " UTC") : "24h per epoch"} />
         </div>
 
         {/* Stats row 2 */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 1, background: "#1a1a1a", marginBottom: 20 }}>
-          <Stat label="epoch"         value={epochLabel} sub={`round ${roundCount?.toString() ?? "—"} / ${ROUNDS_PER_EPOCH}`} />
-          <Stat label="active miners" value={stakedAgents !== undefined ? stakedAgents.toString() : "—"} sub="staked agents" />
-          <Stat label="current window" value={windowLabel} sub={cur ? `round #${cur.roundId?.toString()}` : "—"} />
+          <Stat label="epoch"          value={epochLabel}      sub={`round ${roundCount?.toString() ?? "—"} / ${ROUNDS_PER_EPOCH}`} />
+          <Stat label="active miners"  value={stakedAgents !== undefined ? stakedAgents.toString() : "—"} sub="staked agents" />
+          <Stat label="current window" value={windowLabel}     sub={cur ? `round #${cur.roundId?.toString()}` : "—"} />
         </div>
 
         {/* Current question */}
@@ -157,14 +193,23 @@ export function MineDashboard() {
           <div style={{ fontSize: 14, color: question ? "#e5e5e5" : "#333", lineHeight: 1.55, wordBreak: "break-word" }}>
             {question ?? (epochOpen ? "waiting for oracle to post round…" : "no epoch open")}
           </div>
-          {cur && commitLeft > 0 && (
+          {cur && inCommit && (
             <div style={{ marginTop: 10, fontSize: 11, color: "#555" }}>
-              commit window · {formatCountdown(commitLeft)} remaining
+              commit window · <span style={{ color: "#fff", fontVariantNumeric: "tabular-nums" }}>{formatCountdown(commitLeft)}</span> remaining
             </div>
           )}
-          {cur && revealLeft > 0 && commitLeft === 0 && (
+          {cur && inReveal && (
             <div style={{ marginTop: 10, fontSize: 11, color: "#eab308" }}>
-              reveal window · {formatCountdown(revealLeft)} remaining
+              reveal window · <span style={{ fontVariantNumeric: "tabular-nums" }}>{formatCountdown(revealLeft)}</span> remaining
+            </div>
+          )}
+          {cur && !inCommit && !inReveal && cur.roundId !== undefined && (
+            <div style={{ marginTop: 10, fontSize: 11, color: "#555" }}>settling…</div>
+          )}
+          {/* Agents answered this round — show correctCount post-settle */}
+          {cur?.settled && cur?.correctCount !== undefined && (
+            <div style={{ marginTop: 8, fontSize: 11, color: "#22c55e" }}>
+              {cur.correctCount.toString()} agent{cur.correctCount !== 1n ? "s" : ""} answered correctly
             </div>
           )}
         </div>
@@ -187,7 +232,7 @@ export function MineDashboard() {
               </div>
               {prev?.revealedAnswer && (
                 <div style={{ fontSize: 10, color: "#555", marginTop: 4 }}>
-                  {prev.correctCount?.toString() ?? "—"} correct answers
+                  {prev.correctCount?.toString() ?? "0"} agent{prev.correctCount !== 1n ? "s" : ""} answered correctly
                 </div>
               )}
             </div>
