@@ -8,9 +8,14 @@
   --accent: 220 38 38;
 }
 
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
 body {
   color: rgb(var(--foreground));
   background: rgb(var(--background));
+  overflow-x: hidden;
 }
 
 @layer utilities {

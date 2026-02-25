@@ -5,9 +5,9 @@ import { CONTRACTS } from "@/lib/constants";
 export default function DocsPage() {
   return (
     <main className="min-h-screen bg-[#0a0a0a] text-white font-mono">
-      <nav className="border-b border-[#1a1a1a] px-6 py-4 flex items-center gap-8">
-        <Link href="/" className="text-[#dc2626] font-bold">⛏ mine.claws.tech</Link>
-        <div className="flex gap-6 text-sm text-gray-400">
+      <nav className="border-b border-[#1a1a1a] px-4 py-3 flex items-center justify-between gap-2 flex-wrap">
+        <Link href="/" className="text-[#dc2626] font-bold text-sm whitespace-nowrap shrink-0">⛏ mine.claws.tech</Link>
+        <div className="flex gap-4 text-sm text-gray-400 flex-wrap">
           <Link href="/mine" className="hover:text-white">mine</Link>
           <Link href="/stake" className="hover:text-white">stake</Link>
           <Link href="/epochs" className="hover:text-white">epochs</Link>

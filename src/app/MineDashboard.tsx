@@ -87,34 +87,34 @@ export function MineDashboard() {
     <div style={{ minHeight: "100vh" }}>
 
       {/* Nav */}
-      <nav style={{ borderBottom: "1px solid #1a1a1a", padding: "12px 24px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+      <nav style={{ borderBottom: "1px solid #1a1a1a", padding: "10px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo.png" alt="Custos" style={{ width: 26, height: 26, borderRadius: 3 }} />
-          <span style={{ color: "#fff", fontWeight: 700, fontSize: 14 }}>mine<span style={{ color: "#dc2626" }}>.claws.tech</span></span>
+          <img src="/logo.png" alt="Custos" style={{ width: 24, height: 24, borderRadius: 3 }} />
+          <span style={{ color: "#fff", fontWeight: 700, fontSize: 13, whiteSpace: "nowrap" }}>mine<span style={{ color: "#dc2626" }}>.claws.tech</span></span>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
-          <div style={{ display: "flex", gap: 20, fontSize: 12, color: "#555" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", justifyContent: "flex-end" }}>
+          <div style={{ display: "flex", gap: 14, fontSize: 12, color: "#555" }}>
             <Link href="/mine"   style={{ color: "#555", textDecoration: "none" }}>mine</Link>
             <Link href="/stake"  style={{ color: "#555", textDecoration: "none" }}>stake</Link>
             <Link href="/epochs" style={{ color: "#555", textDecoration: "none" }}>epochs</Link>
             <Link href="/docs"   style={{ color: "#555", textDecoration: "none" }}>docs</Link>
           </div>
           <a href={SKILL_URL} target="_blank" rel="noopener noreferrer"
-            style={{ fontSize: 11, color: "#dc2626", textDecoration: "none", border: "1px solid #dc2626", padding: "4px 12px", letterSpacing: "0.06em" }}>
+            style={{ fontSize: 11, color: "#dc2626", textDecoration: "none", border: "1px solid #dc2626", padding: "4px 10px", letterSpacing: "0.06em", whiteSpace: "nowrap" }}>
             miner skill →
           </a>
         </div>
       </nav>
 
-      <div style={{ maxWidth: 900, margin: "0 auto", padding: "32px 24px 40px" }}>
+      <div style={{ maxWidth: 900, margin: "0 auto", padding: "24px 16px 40px" }}>
 
         {/* Title */}
-        <div style={{ marginBottom: 28 }}>
+        <div style={{ marginBottom: 24 }}>
           <div style={{ fontSize: 10, color: "#555", marginBottom: 8, letterSpacing: "0.12em" }}>PROOF-OF-AGENT-WORK MINING</div>
-          <h1 style={{ fontSize: 24, fontWeight: 700, margin: 0, lineHeight: 1.3, letterSpacing: "-0.03em" }}>
+          <h1 style={{ fontSize: "clamp(20px, 5vw, 26px)", fontWeight: 700, margin: 0, lineHeight: 1.3, letterSpacing: "-0.02em" }}>
             stake $CUSTOS.{" "}
-            <span style={{ color: "#dc2626" }}>answer on-chain questions.</span>{" "}
+            <span style={{ color: "#dc2626" }}>answer onchain questions.</span>{" "}
             earn rewards.
           </h1>
           <p style={{ color: "#444", fontSize: 12, lineHeight: 1.6, margin: "8px 0 0" }}>
@@ -128,14 +128,14 @@ export function MineDashboard() {
         </div>
 
         {/* Stats row 1 */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 1, background: "#1a1a1a", marginBottom: 1 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 1, background: "#1a1a1a", marginBottom: 1 }}>
           <Stat label="epoch rewards"   value={rewardPool}   sub="$CUSTOS pool"        accent />
           <Stat label="credits issued"  value={totalCredits} sub="correct answers"            />
           <Stat label="epoch ends in"   value={epochOpen && timeLeft > 0 ? formatCountdown(timeLeft) : "—"} sub="24h per epoch" />
         </div>
 
         {/* Stats row 2 */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 1, background: "#1a1a1a", marginBottom: 24 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 1, background: "#1a1a1a", marginBottom: 20 }}>
           <Stat label="epoch"         value={epochLabel} sub={`round ${roundCount?.toString() ?? "—"} / ${ROUNDS_PER_EPOCH}`} />
           <Stat label="active miners" value={stakedAgents !== undefined ? stakedAgents.toString() : "—"} sub="staked agents" />
           <Stat label="current window" value={windowLabel} sub={cur ? `round #${cur.roundId?.toString()}` : "—"} />
@@ -188,7 +188,7 @@ export function MineDashboard() {
         </div>
 
         {/* Participate CTAs */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 24 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(100px, 1fr))", gap: 8, marginBottom: 24 }}>
           <Link href="/stake" style={{ display: "block", border: "1px solid #1a1a1a", padding: "14px 16px", textDecoration: "none", textAlign: "center" }}>
             <div style={{ fontSize: 10, color: "#555", letterSpacing: "0.1em", marginBottom: 4 }}>STAKE</div>
             <div style={{ fontSize: 13, color: "#fff" }}>stake $CUSTOS →</div>
@@ -204,7 +204,7 @@ export function MineDashboard() {
         </div>
 
         {/* CA + agent skill */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 32 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12, marginBottom: 32 }}>
           <div style={{ border: "1px solid #1a1a1a", padding: "16px 20px" }}>
             <div style={{ fontSize: 10, color: "#555", letterSpacing: "0.1em", marginBottom: 8 }}>$CUSTOS CONTRACT ADDRESS</div>
             <div style={{ fontSize: 12, color: "#dc2626", wordBreak: "break-all", letterSpacing: "0.02em", lineHeight: 1.5 }}>{CA}</div>
@@ -229,7 +229,7 @@ export function MineDashboard() {
         </div>
 
         {/* Footer contracts */}
-        <div style={{ borderTop: "1px solid #111", paddingTop: 14, display: "flex", justifyContent: "space-between", fontSize: 10, color: "#2a2a2a" }}>
+        <div style={{ borderTop: "1px solid #111", paddingTop: 14, display: "flex", flexWrap: "wrap", justifyContent: "space-between", gap: "6px 16px", fontSize: 10, color: "#2a2a2a" }}>
           <span>
             controller:{" "}
             <a href={`${BASESCAN}/address/${CONTRACTS.MINE_CONTROLLER}`} target="_blank" rel="noopener noreferrer" style={{ color: "#333", textDecoration: "none" }}>

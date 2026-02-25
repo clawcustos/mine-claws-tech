@@ -36,26 +36,26 @@ export default function EpochsPage() {
   return (
     <main style={{ minHeight: "100vh", background: "#0a0a0a", color: "#fff", fontFamily: "ui-monospace, 'Cascadia Code', 'Fira Code', monospace" }}>
 
-      <nav style={{ borderBottom: "1px solid #1a1a1a", padding: "12px 24px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 32 }}>
-          <Link href="/" style={{ display: "flex", alignItems: "center", gap: 8, textDecoration: "none" }}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/logo.png" alt="Custos" style={{ width: 24, height: 24, borderRadius: 3 }} />
-            <span style={{ color: "#fff", fontWeight: 700, fontSize: 14 }}>mine<span style={{ color: "#dc2626" }}>.claws.tech</span></span>
-          </Link>
-          <div style={{ display: "flex", gap: 24, fontSize: 13, color: "#555" }}>
+      <nav style={{ borderBottom: "1px solid #1a1a1a", padding: "10px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+        <Link href="/" style={{ display: "flex", alignItems: "center", gap: 8, textDecoration: "none", flexShrink: 0 }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo.png" alt="Custos" style={{ width: 24, height: 24, borderRadius: 3 }} />
+          <span style={{ color: "#fff", fontWeight: 700, fontSize: 13, whiteSpace: "nowrap" }}>mine<span style={{ color: "#dc2626" }}>.claws.tech</span></span>
+        </Link>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", justifyContent: "flex-end" }}>
+          <div style={{ display: "flex", gap: 14, fontSize: 12, color: "#555" }}>
             {[["mine", "/mine"], ["stake", "/stake"], ["epochs", "/epochs"], ["docs", "/docs"]].map(([label, href]) => (
               <Link key={href} href={href} style={{ color: label === "epochs" ? "#fff" : "#555", textDecoration: "none" }}>{label}</Link>
             ))}
           </div>
+          <a href={SKILL_URL} target="_blank" rel="noopener noreferrer"
+            style={{ fontSize: 11, color: "#dc2626", textDecoration: "none", border: "1px solid #dc2626", padding: "4px 10px", letterSpacing: "0.06em", whiteSpace: "nowrap" }}>
+            miner skill →
+          </a>
         </div>
-        <a href={SKILL_URL} target="_blank" rel="noopener noreferrer"
-          style={{ fontSize: 11, color: "#dc2626", textDecoration: "none", border: "1px solid #dc2626", padding: "4px 12px", letterSpacing: "0.06em" }}>
-          miner skill →
-        </a>
       </nav>
 
-      <div style={{ maxWidth: 760, margin: "0 auto", padding: "36px 24px 60px" }}>
+      <div style={{ maxWidth: 760, margin: "0 auto", padding: "24px 16px 48px" }}>
 
         <div style={{ marginBottom: 28 }}>
           <div style={{ fontSize: 10, color: "#555", letterSpacing: "0.12em", marginBottom: 8 }}>HISTORY</div>
