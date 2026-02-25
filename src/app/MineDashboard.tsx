@@ -78,6 +78,22 @@ export function MineDashboard() {
   });
   const round1 = r1Data?.[0]?.result as any;
 
+  // Total credits earned this epoch — sum correctCount across ALL settled rounds
+  // We fetch the last 5 settled rounds to approximate; true total comes from epochCredits mapping
+  const settledRoundIds = roundCount && roundCount > 0n
+    ? Array.from({ length: Math.min(Number(roundCount), 10) }, (_, i) => BigInt(Number(roundCount) - i)).filter(n => n > 0n)
+    : [];
+  const { data: settledData } = useReadContracts({
+    contracts: settledRoundIds.map(id => ({ ...c, functionName: "getRound" as const, args: [id] })),
+    query: { enabled: settledRoundIds.length > 0, refetchInterval: 15_000 },
+  });
+  const totalCorrectAnswers = settledData
+    ? (settledData as any[]).reduce((sum, d) => {
+        const r = d?.result as any;
+        return sum + (r?.settled && r?.correctCount ? Number(r.correctCount) : 0);
+      }, 0)
+    : 0;
+
   // Epoch end: use epoch.endAt if sane (> year 2024), else derive from round 1 commitOpenAt + 140*600s
   const epochEndAt: number | undefined = (() => {
     if (epoch?.endAt && Number(epoch.endAt) > 1_700_000_000) return Number(epoch.endAt);
@@ -87,16 +103,11 @@ export function MineDashboard() {
   })();
   const epochTimeLeft = epochEndAt ? Math.max(0, epochEndAt - now) : 0;
 
-  // Credits: epoch.totalCredits is only populated at epoch close.
-  // Mid-epoch: sum correctCount from all settled rounds (approximation — we only fetch cur+prev here).
-  // Show settled round count as proxy for "rounds with correct answers".
-  const settledRoundsWithAnswers =
-    (prev?.settled && prev?.correctCount > 0n ? 1 : 0) +
-    (cur?.settled  && cur?.correctCount  > 0n ? 1 : 0);
-  // True totalCredits once epoch closes
+  // Correct answers: sum correctCount across last 10 settled rounds (live mid-epoch view)
+  // epoch.totalCredits only fills at epoch close
   const totalCredits = epoch?.totalCredits !== undefined && epoch.totalCredits > 0n
     ? epoch.totalCredits.toString()
-    : settledRoundsWithAnswers > 0 ? `${settledRoundsWithAnswers}+` : "0";
+    : totalCorrectAnswers > 0 ? totalCorrectAnswers.toString() : "0";
 
   // Reward pool
   const rewardRaw = (epoch?.rewardPool !== undefined && epoch.rewardPool > 0n)
