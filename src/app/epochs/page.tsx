@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 
 import { useReadContracts } from "wagmi";
 import Link from "next/link";
-import { CONTRACTS } from "@/lib/constants";
+import { CONTRACTS, ROUNDS_PER_EPOCH } from "@/lib/constants";
 import { MINE_CONTROLLER_ABI } from "@/lib/abis";
 import { formatCustos } from "@/lib/utils";
 
@@ -15,16 +15,33 @@ export default function EpochsPage() {
     contracts: [
       { ...controller, functionName: "currentEpochId" },
       { ...controller, functionName: "epochOpen" },
+      { ...controller, functionName: "roundCount" },
     ],
     query: { refetchInterval: 15_000 },
   });
 
   const currentEpochId = baseData?.[0]?.result as bigint | undefined;
   const epochOpen      = baseData?.[1]?.result as boolean | undefined;
+  const roundCount     = baseData?.[2]?.result as bigint  | undefined;
 
   const epochIds = currentEpochId
     ? Array.from({ length: Math.min(5, Number(currentEpochId)) }, (_, i) => currentEpochId - BigInt(i))
     : [];
+
+  // Live credits for current open epoch: sum correctCount across all settled rounds
+  const allRoundIds = epochOpen && roundCount && roundCount > 0n
+    ? Array.from({ length: Number(roundCount) }, (_, i) => BigInt(i + 1))
+    : [];
+  const { data: allRoundsData } = useReadContracts({
+    contracts: allRoundIds.map(id => ({ ...controller, functionName: "getRound" as const, args: [id] })),
+    query: { enabled: allRoundIds.length > 0, refetchInterval: 30_000 },
+  });
+  const liveCredits = allRoundsData
+    ? (allRoundsData as any[]).reduce((sum, d) => {
+        const r = d?.result as any;
+        return sum + (r?.settled && r?.correctCount ? Number(r.correctCount) : 0);
+      }, 0)
+    : 0;
 
   const { data: epochsData } = useReadContracts({
     contracts: epochIds.map(id => ({ ...controller, functionName: "getEpoch" as const, args: [id] as const })),
@@ -101,15 +118,26 @@ export default function EpochsPage() {
                         </div>
                         <div>
                           <div style={{ color: "#999", marginBottom: 2, fontSize: 10 }}>TOTAL CREDITS</div>
-                          <div>{epoch?.totalCredits?.toString() ?? "—"}</div>
-                          <div style={{ color: "#aaa", fontSize: 10 }}>correct reveals</div>
+                          <div>
+                            {/* Use epoch.totalCredits post-close, live sum mid-epoch */}
+                            {epoch?.totalCredits && epoch.totalCredits > 0n
+                              ? epoch.totalCredits.toString()
+                              : isCurrent && epochOpen
+                                ? liveCredits > 0 ? liveCredits.toString() : "0"
+                                : "0"}
+                          </div>
+                          <div style={{ color: "#aaa", fontSize: 10 }}>
+                            {isCurrent && epochOpen ? "live · resets at close" : "correct reveals"}
+                          </div>
                         </div>
                         <div>
                           <div style={{ color: "#999", marginBottom: 2, fontSize: 10 }}>CLAIM DEADLINE</div>
                           <div style={{ fontSize: 11 }}>
-                            {epoch?.claimDeadline ? new Date(Number(epoch.claimDeadline) * 1000).toLocaleDateString() : "—"}
+                            {epoch?.claimDeadline && Number(epoch.claimDeadline) > 0
+                              ? new Date(Number(epoch.claimDeadline) * 1000).toLocaleDateString()
+                              : isCurrent && epochOpen ? "7 days after close" : "—"}
                           </div>
-                          <div style={{ color: "#aaa", fontSize: 10 }}>30 days after close</div>
+                          <div style={{ color: "#aaa", fontSize: 10 }}>7 days after close</div>
                         </div>
                       </div>
                     </div>
