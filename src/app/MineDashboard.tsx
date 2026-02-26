@@ -35,6 +35,17 @@ function Stat({ label, value, sub, accent }: { label: string; value: string; sub
   );
 }
 
+// Pulsing dot — shows for live phases
+function PulseDot({ color }: { color: string }) {
+  return (
+    <span style={{
+      display: "inline-block", width: 6, height: 6, borderRadius: "50%",
+      background: color, marginRight: 5, verticalAlign: "middle",
+      animation: "pulse 1.8s ease-in-out infinite",
+    }} />
+  );
+}
+
 // Single flight row: one of latest, N-1, N-2
 function FlightRow({
   label, phase, roundId, countdown, countdownColor, question, answer, correctCount, settled, expired, awaitingOracle,
@@ -42,45 +53,77 @@ function FlightRow({
   label: string; phase: string; roundId?: string; countdown?: number; countdownColor: string;
   question?: string | null; answer?: string; correctCount?: number; settled?: boolean; expired?: boolean; awaitingOracle?: boolean;
 }) {
-  const phaseColor = phase === "commit" ? "#fff"
+  const isLive = phase === "commit" || phase === "reveal";
+  const phaseColor = phase === "commit"   ? "#fff"
     : phase === "reveal"   ? "#eab308"
+    : phase === "settling" ? "#f97316"
     : phase === "settled"  ? "#22c55e"
     : C.dim;
+
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "72px 88px 1fr auto", gap: 12, alignItems: "start", padding: "12px 0", borderBottom: `1px solid #111` }}>
+    <div style={{
+      display: "grid", gridTemplateColumns: "68px 110px 1fr 120px", gap: 12,
+      alignItems: "start", padding: "14px 0", borderBottom: `1px solid #111`,
+    }}>
+      {/* Round label */}
       <div>
-        <div style={{ fontSize: 10, color: C.label, letterSpacing: "0.08em", marginBottom: 3 }}>{label}</div>
-        <div style={{ fontSize: 12, color: C.sub }}>{roundId ? `#${roundId}` : "—"}</div>
+        <div style={{ fontSize: 9, color: C.label, letterSpacing: "0.08em", marginBottom: 3, textTransform: "uppercase" }}>{label}</div>
+        <div style={{ fontSize: 13, fontWeight: 600, color: "#fff" }}>{roundId ? `#${roundId}` : "—"}</div>
       </div>
+
+      {/* Phase */}
       <div>
-        <div style={{ fontSize: 11, color: phaseColor, fontWeight: 600, letterSpacing: "0.06em" }}>{phase.toUpperCase()}</div>
+        <div style={{ fontSize: 11, color: phaseColor, fontWeight: 600, letterSpacing: "0.06em", display: "flex", alignItems: "center" }}>
+          {isLive && <PulseDot color={phaseColor} />}
+          {phase === "settling" && <PulseDot color="#f97316" />}
+          {phase.toUpperCase()}
+        </div>
         {countdown !== undefined && countdown > 0 && (
-          <div style={{ fontSize: 11, color: countdownColor, fontVariantNumeric: "tabular-nums", marginTop: 2 }}>
+          <div style={{ fontSize: 12, color: countdownColor, fontVariantNumeric: "tabular-nums", marginTop: 3, fontWeight: 500 }}>
             {formatCountdown(countdown)}
           </div>
         )}
-        {awaitingOracle && <div style={{ fontSize: 9, color: C.dim, marginTop: 3 }}>awaiting oracle</div>}
-        {settled && <div style={{ fontSize: 10, color: "#22c55e", marginTop: 2 }}>✓</div>}
-        {expired && !settled && <div style={{ fontSize: 10, color: C.dim, marginTop: 2 }}>expired</div>}
+        {awaitingOracle && (
+          <div style={{ fontSize: 9, color: "#f97316", marginTop: 4, lineHeight: 1.4 }}>
+            verifying reveals<br />
+            <span style={{ color: C.dim }}>oracle settles next tick</span>
+          </div>
+        )}
+        {settled && <div style={{ fontSize: 10, color: "#22c55e", marginTop: 3 }}>✓ settled</div>}
+        {expired && !settled && <div style={{ fontSize: 10, color: C.dim, marginTop: 3 }}>expired</div>}
       </div>
-      <div style={{ fontSize: 12, color: C.text, lineHeight: 1.45, wordBreak: "break-word" }}>
+
+      {/* Question */}
+      <div style={{ fontSize: 11, color: C.text, lineHeight: 1.5, wordBreak: "break-word" }}>
         {question
           ? question
           : roundId
-            ? <span style={{ color: "#444", fontSize: 11, fontStyle: "italic" }}>fetching question…</span>
+            ? <span style={{ color: "#333", fontStyle: "italic" }}>fetching question…</span>
             : "—"}
       </div>
-      <div style={{ textAlign: "right", minWidth: 56 }}>
-        {answer && (
-          <div style={{ fontSize: 11, color: "#22c55e", fontWeight: 600, wordBreak: "break-all", maxWidth: 90, marginLeft: "auto" }}
-               title={answer}>
-            {answer.length > 20 ? answer.slice(0, 10) + "…" + answer.slice(-8) : answer}
+
+      {/* Answer + credits */}
+      <div style={{ textAlign: "right" }}>
+        {settled && answer ? (
+          <>
+            <div style={{ fontSize: 11, color: "#22c55e", fontWeight: 600, wordBreak: "break-all", lineHeight: 1.4 }}
+                 title={answer}>
+              {answer.length > 22 ? answer.slice(0, 10) + "…" + answer.slice(-8) : answer}
+            </div>
+            {correctCount !== undefined && (
+              <div style={{ fontSize: 10, color: C.sub, marginTop: 3 }}>
+                {correctCount} correct · {correctCount} credit{correctCount !== 1 ? "s" : ""} issued
+              </div>
+            )}
+          </>
+        ) : awaitingOracle ? (
+          <div style={{ fontSize: 10, color: "#f97316", lineHeight: 1.5 }}>
+            answer sealed<br />
+            <span style={{ color: C.dim, fontSize: 9 }}>revealed at settle</span>
           </div>
-        )}
-        {settled && correctCount !== undefined && (
-          <div style={{ fontSize: 10, color: C.sub, marginTop: 2 }}>{correctCount} correct</div>
-        )}
-        {awaitingOracle && <div style={{ fontSize: 9, color: C.dim }}>~next tick</div>}
+        ) : settled && correctCount !== undefined ? (
+          <div style={{ fontSize: 10, color: C.sub }}>{correctCount} credit{correctCount !== 1 ? "s" : ""} issued</div>
+        ) : null}
       </div>
     </div>
   );
@@ -130,10 +173,10 @@ export function MineDashboard() {
     ...(rN1 ? [{ ...c, functionName: "getRound" as const, args: [rN1] }] : []),
     ...(rN2 ? [{ ...c, functionName: "getRound" as const, args: [rN2] }] : []),
   ];
-  // Poll flight rounds every 30s — live countdowns are derived from timestamps client-side
-  const { data: flightData } = useReadContracts({
+  // Poll flight rounds every 12s — fast enough to catch settle transitions; countdowns derived client-side
+  const { data: flightData, dataUpdatedAt } = useReadContracts({
     contracts: flight3Contracts,
-    query: { enabled: flight3Contracts.length > 0 && !!epochOpen, refetchInterval: 30_000 },
+    query: { enabled: flight3Contracts.length > 0 && !!epochOpen, refetchInterval: 12_000 },
   });
 
   let idx = 0;
@@ -260,6 +303,12 @@ export function MineDashboard() {
 
   return (
     <div style={{ minHeight: "100vh" }}>
+      <style>{`
+        @keyframes pulse {
+          0%, 100% { opacity: 1; }
+          50%       { opacity: 0.25; }
+        }
+      `}</style>
 
       {/* Nav */}
       <nav style={{ borderBottom: `1px solid ${C.border}`, padding: "10px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
@@ -319,7 +368,7 @@ export function MineDashboard() {
         {/* Stats row 1 */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 1, background: C.border, marginBottom: 1 }}>
           <Stat label="epoch rewards"   value={rewardPool}     sub={rewardUsd ?? "$CUSTOS pool"} accent />
-          <Stat label="correct answers" value={totalCredits}   sub="this epoch · resets at close" />
+          <Stat label="credits issued"   value={totalCredits}   sub="across all settled rounds" />
           <Stat label="epoch ends in"   value={epochOpen && epochEndAt ? formatCountdown(epochTimeLeft) : "—"} sub={epochEndAt ? new Date(epochEndAt * 1000).toUTCString().replace(" GMT", " UTC") : "24h per epoch"} />
         </div>
 
@@ -332,16 +381,23 @@ export function MineDashboard() {
 
         {/* 3-flight panel */}
         <div style={{ border: `1px solid ${C.border}`, padding: "18px 20px", marginBottom: 20 }}>
-          <div style={{ fontSize: 10, color: C.label, letterSpacing: "0.1em", marginBottom: 14 }}>
-            ROLLING WINDOW — 3 ROUNDS IN FLIGHT SIMULTANEOUSLY
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+            <div style={{ fontSize: 10, color: C.label, letterSpacing: "0.1em" }}>
+              ROLLING WINDOW — 3 ROUNDS IN FLIGHT SIMULTANEOUSLY
+            </div>
+            {dataUpdatedAt ? (
+              <div style={{ fontSize: 9, color: "#333", letterSpacing: "0.04em" }}>
+                updated {new Date(dataUpdatedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+              </div>
+            ) : null}
           </div>
 
           {/* Table header */}
-          <div style={{ display: "grid", gridTemplateColumns: "72px 88px 1fr auto", gap: 12, marginBottom: 4 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "68px 110px 1fr 120px", gap: 12, marginBottom: 4, paddingBottom: 6, borderBottom: `1px solid #0f0f0f` }}>
             <div style={{ fontSize: 9, color: C.tableHdr, letterSpacing: "0.08em" }}>ROUND</div>
             <div style={{ fontSize: 9, color: C.tableHdr, letterSpacing: "0.08em" }}>PHASE</div>
             <div style={{ fontSize: 9, color: C.tableHdr, letterSpacing: "0.08em" }}>QUESTION</div>
-            <div style={{ fontSize: 9, color: C.tableHdr, letterSpacing: "0.08em", textAlign: "right" }}>ANSWER</div>
+            <div style={{ fontSize: 9, color: C.tableHdr, letterSpacing: "0.08em", textAlign: "right" }}>ANSWER / CREDITS</div>
           </div>
 
           {epochOpen ? (
