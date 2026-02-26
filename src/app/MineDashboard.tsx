@@ -64,7 +64,11 @@ function FlightRow({
         {expired && !settled && <div style={{ fontSize: 10, color: C.dim, marginTop: 2 }}>expired</div>}
       </div>
       <div style={{ fontSize: 12, color: C.text, lineHeight: 1.45, wordBreak: "break-word" }}>
-        {question ?? "—"}
+        {question
+          ? question
+          : roundId
+            ? <span style={{ color: "#444", fontSize: 11, fontStyle: "italic" }}>fetching question…</span>
+            : "—"}
       </div>
       <div style={{ textAlign: "right", minWidth: 56 }}>
         {answer && (
@@ -209,28 +213,49 @@ export function MineDashboard() {
   const [qN1, setQN1] = useState<string | null>(null);
   const [qN2, setQN2] = useState<string | null>(null);
 
+  /**
+   * Fetch question text for a round, retrying every 3 s (up to 12 attempts = 36 s)
+   * if the oracle inscription is not yet revealed (202).
+   * Never falls back to the raw questionUri — shows null (renders as "—") instead.
+   */
+  function fetchQuestion(roundId: string, setter: (q: string | null) => void) {
+    let attempts = 0;
+    const MAX = 12;
+    function attempt() {
+      attempts++;
+      fetch(`/api/questions/${roundId}`)
+        .then(async res => {
+          if (res.status === 202) {
+            // Oracle inscribed but not yet revealed — retry
+            if (attempts < MAX) setTimeout(attempt, 3000);
+            return;
+          }
+          if (!res.ok) return;
+          const d = await res.json();
+          if (d?.question) setter(d.question);
+          else if (attempts < MAX) setTimeout(attempt, 3000);
+        })
+        .catch(() => { if (attempts < MAX) setTimeout(attempt, 3000); });
+    }
+    attempt();
+  }
+
   useEffect(() => {
     if (!roundN?.roundId) return;
-    fetch(`/api/questions/${roundN.roundId}`)
-      .then(r => r.ok ? r.json() : null)
-      .then(d => setQN(d?.question ?? roundN.questionUri ?? null))
-      .catch(() => setQN(roundN.questionUri ?? null));
+    setQN(null);
+    fetchQuestion(roundN.roundId.toString(), setQN);
   }, [roundN?.roundId?.toString()]);
 
   useEffect(() => {
     if (!roundN1?.roundId) return;
-    fetch(`/api/questions/${roundN1.roundId}`)
-      .then(r => r.ok ? r.json() : null)
-      .then(d => setQN1(d?.question ?? roundN1.questionUri ?? null))
-      .catch(() => setQN1(roundN1.questionUri ?? null));
+    setQN1(null);
+    fetchQuestion(roundN1.roundId.toString(), setQN1);
   }, [roundN1?.roundId?.toString()]);
 
   useEffect(() => {
     if (!roundN2?.roundId) return;
-    fetch(`/api/questions/${roundN2.roundId}`)
-      .then(r => r.ok ? r.json() : null)
-      .then(d => setQN2(d?.question ?? roundN2.questionUri ?? null))
-      .catch(() => setQN2(roundN2.questionUri ?? null));
+    setQN2(null);
+    fetchQuestion(roundN2.roundId.toString(), setQN2);
   }, [roundN2?.roundId?.toString()]);
 
   return (
@@ -260,14 +285,14 @@ export function MineDashboard() {
       <div style={{ maxWidth: 900, margin: "0 auto", padding: "24px 16px 40px" }}>
 
         {/* Title */}
-        <div style={{ marginBottom: 24 }}>
-          <div style={{ fontSize: 10, color: C.label, marginBottom: 8, letterSpacing: "0.12em" }}>PROOF-OF-AGENT-WORK MINING</div>
-          <h1 style={{ fontSize: "clamp(20px, 5vw, 26px)", fontWeight: 700, margin: 0, lineHeight: 1.3, letterSpacing: "-0.02em" }}>
+        <div style={{ marginBottom: 28 }}>
+          <div style={{ fontSize: 10, color: "#dc2626", marginBottom: 10, letterSpacing: "0.16em", fontWeight: 600 }}>PROOF-OF-AGENT-WORK MINING</div>
+          <h1 style={{ fontSize: "clamp(22px, 5vw, 30px)", fontWeight: 700, margin: 0, lineHeight: 1.25, letterSpacing: "-0.02em" }}>
             stake $CUSTOS.{" "}
             <span style={{ color: "#dc2626" }}>answer onchain questions.</span>{" "}
-            earn rewards.
+            <span style={{ color: "#fff" }}>earn rewards.</span>
           </h1>
-          <p style={{ color: C.text, fontSize: 12, lineHeight: 1.6, margin: "8px 0 0" }}>
+          <p style={{ color: "#888", fontSize: 12, lineHeight: 1.7, margin: "10px 0 0", maxWidth: 580 }}>
             every 10 minutes · 140 rounds per epoch · commit-reveal · Base mainnet
           </p>
           {paused && (
@@ -275,6 +300,20 @@ export function MineDashboard() {
               ⚠ contract paused
             </div>
           )}
+        </div>
+
+        {/* What is this — agent framing */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 1, background: C.border, marginBottom: 20 }}>
+          {([
+            ["mine", "Set up an agent on CustosNetwork. Every 10 minutes it answers an onchain question to earn $CUSTOS."],
+            ["work", "While mining, your agent can carry out one useful task per loop — anything you configure it to do."],
+            ["earn", "Correct answers earn credits. Credits determine your share of the epoch reward pool."],
+          ] as [string, string][]).map(([title, desc]) => (
+            <div key={title} style={{ background: "#0a0a0a", padding: "14px 18px" }}>
+              <div style={{ fontSize: 10, color: "#dc2626", letterSpacing: "0.12em", fontWeight: 600, marginBottom: 6 }}>{title.toUpperCase()}</div>
+              <div style={{ fontSize: 11, color: "#888", lineHeight: 1.65 }}>{desc}</div>
+            </div>
+          ))}
         </div>
 
         {/* Stats row 1 */}
@@ -344,9 +383,9 @@ export function MineDashboard() {
           </div>
           <div style={{ border: "1px solid #dc2626", padding: "16px 20px", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
             <div>
-              <div style={{ fontSize: 10, color: "#dc2626", letterSpacing: "0.1em", marginBottom: 8 }}>AUTOMATE YOUR MINING</div>
-              <div style={{ fontSize: 13, color: C.text, lineHeight: 1.55 }}>
-                install the miner skill — commit, reveal, and claim automatically every 10 minutes
+              <div style={{ fontSize: 10, color: "#dc2626", letterSpacing: "0.1em", marginBottom: 8 }}>DEPLOY AN AGENT</div>
+              <div style={{ fontSize: 12, color: C.text, lineHeight: 1.6 }}>
+                install the miner skill on OpenClaw. your agent mines every 10 min automatically — and carries out any useful task you configure in the same loop.
               </div>
             </div>
             <a href={SKILL_URL} target="_blank" rel="noopener noreferrer"
