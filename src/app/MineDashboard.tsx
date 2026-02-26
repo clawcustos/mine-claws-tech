@@ -1,7 +1,7 @@
 "use client";
 
 import { useReadContracts } from "wagmi";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import { CONTRACTS, BASESCAN, ROUNDS_PER_EPOCH } from "@/lib/constants";
 import { MINE_CONTROLLER_ABI } from "@/lib/abis";
@@ -148,6 +148,99 @@ function FlightRow({
   );
 }
 
+const DIFF_COLOR: Record<string, string> = {
+  easy:   "#4ade80",
+  medium: "#facc15",
+  hard:   "#fb923c",
+  expert: "#dc2626",
+};
+
+function RecentRounds({
+  allRoundsData, questionCache, fetchQuestion, roundCount,
+}: {
+  allRoundsData: any;
+  questionCache: Record<string, string>;
+  fetchQuestion: (id: string) => void;
+  roundCount?: bigint;
+}) {
+  const [expanded, setExpanded] = useState(false);
+
+  if (!allRoundsData || !roundCount || roundCount < 3n) return null;
+
+  // Collect settled rounds, most recent first, skip the 3 in-flight
+  const settled: any[] = [];
+  const data = allRoundsData as any[];
+  for (let i = data.length - 1; i >= 0; i--) {
+    const r = data[i]?.result;
+    if (!r || !r.settled) continue;
+    // Skip rounds that are still in the 3-flight window
+    const rid = BigInt(r.roundId);
+    if (rid >= roundCount - 2n) continue;
+    settled.push(r);
+    if (settled.length >= 10) break;
+  }
+
+  if (settled.length === 0) return null;
+
+  const shown = expanded ? settled : settled.slice(0, 3);
+
+  // Pre-fetch questions for visible settled rounds
+  useEffect(() => {
+    shown.forEach(r => fetchQuestion(r.roundId.toString()));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [expanded, settled.length]);
+
+  return (
+    <div style={{ border: `1px solid ${C.border}`, marginBottom: 20 }}>
+      <button
+        onClick={() => setExpanded(e => !e)}
+        style={{
+          width: "100%", background: "none", border: "none", cursor: "pointer",
+          padding: "12px 14px", display: "flex", justifyContent: "space-between", alignItems: "center",
+        }}
+      >
+        <div style={{ fontSize: 10, color: C.label, letterSpacing: "0.1em" }}>RECENT SETTLED ROUNDS</div>
+        <div style={{ fontSize: 10, color: C.dim }}>{expanded ? "show less ↑" : `show all ${settled.length} ↓`}</div>
+      </button>
+
+      {shown.map((r: any) => {
+        const rid  = r.roundId.toString();
+        const q    = questionCache[rid] ?? null;
+        const ans  = r.revealedAnswer ?? "—";
+        const diff = r.difficulty ?? "";
+        return (
+          <div key={rid} style={{
+            display: "grid", gridTemplateColumns: "52px 1fr auto",
+            gap: 10, padding: "10px 14px", borderTop: `1px solid #0f0f0f`,
+            alignItems: "start",
+          }}>
+            <div>
+              <div style={{ fontSize: 9, color: C.label, letterSpacing: "0.06em" }}>ROUND</div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "#fff" }}>#{rid}</div>
+              {diff && (
+                <div style={{ fontSize: 9, color: DIFF_COLOR[diff] ?? C.dim, marginTop: 2, letterSpacing: "0.06em" }}>
+                  {diff}
+                </div>
+              )}
+            </div>
+            <div style={{ fontSize: 11, color: C.text, lineHeight: 1.5, wordBreak: "break-word" }}>
+              {q ?? <span style={{ color: "#333", fontStyle: "italic" }}>loading…</span>}
+            </div>
+            <div style={{ textAlign: "right", minWidth: 70 }}>
+              <div style={{ fontSize: 11, color: "#22c55e", fontWeight: 600, wordBreak: "break-all" }} title={ans}>
+                {ans.length > 18 ? ans.slice(0, 8) + "…" + ans.slice(-6) : ans}
+              </div>
+              <div style={{ fontSize: 9, color: C.sub, marginTop: 2 }}>
+                {Number(r.correctCount)} credit{Number(r.correctCount) !== 1 ? "s" : ""}
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export function MineDashboard() {
   const { price: custosPrice } = useCustosPrice();
   const [now, setNow] = useState(() => Math.floor(Date.now() / 1000));
@@ -271,16 +364,17 @@ export function MineDashboard() {
   const awaitingN1 = phaseN1.awaitingOracle;
   const awaitingN2 = phaseN2.awaitingOracle;
 
-  const [qN,  setQN]  = useState<string | null>(null);
-  const [qN1, setQN1] = useState<string | null>(null);
-  const [qN2, setQN2] = useState<string | null>(null);
-
   /**
-   * Fetch question text for a round, retrying every 3 s (up to 12 attempts = 36 s)
-   * if the oracle inscription is not yet revealed (202).
-   * Never falls back to the raw questionUri — shows null (renders as "—") instead.
+   * Shared question cache keyed by roundId string.
+   * Questions survive slot shifts (N → N-1 → N-2) — once fetched, always available.
+   * Retry every 3s up to 12 attempts on 202 (oracle not yet revealed).
    */
-  function fetchQuestion(roundId: string, setter: (q: string | null) => void) {
+  const [questionCache, setQuestionCache] = useState<Record<string, string>>({});
+  const fetchingRef = useRef<Set<string>>(new Set());
+
+  const fetchQuestion = useCallback((roundId: string) => {
+    if (!roundId || questionCache[roundId] || fetchingRef.current.has(roundId)) return;
+    fetchingRef.current.add(roundId);
     let attempts = 0;
     const MAX = 12;
     function attempt() {
@@ -288,37 +382,40 @@ export function MineDashboard() {
       fetch(`/api/questions/${roundId}`)
         .then(async res => {
           if (res.status === 202) {
-            // Oracle inscribed but not yet revealed — retry
             if (attempts < MAX) setTimeout(attempt, 3000);
+            else fetchingRef.current.delete(roundId);
             return;
           }
-          if (!res.ok) return;
+          if (!res.ok) { fetchingRef.current.delete(roundId); return; }
           const d = await res.json();
-          if (d?.question) setter(d.question);
-          else if (attempts < MAX) setTimeout(attempt, 3000);
+          if (d?.question) {
+            setQuestionCache(prev => ({ ...prev, [roundId]: d.question }));
+            fetchingRef.current.delete(roundId);
+          } else if (attempts < MAX) {
+            setTimeout(attempt, 3000);
+          } else {
+            fetchingRef.current.delete(roundId);
+          }
         })
-        .catch(() => { if (attempts < MAX) setTimeout(attempt, 3000); });
+        .catch(() => {
+          if (attempts < MAX) setTimeout(attempt, 3000);
+          else fetchingRef.current.delete(roundId);
+        });
     }
     attempt();
-  }
+  }, [questionCache]);
 
+  // Fetch questions for all 3 flight rounds whenever their roundIds change
   useEffect(() => {
-    if (!roundN?.roundId) return;
-    setQN(null);
-    fetchQuestion(roundN.roundId.toString(), setQN);
-  }, [roundN?.roundId?.toString()]);
+    if (roundN?.roundId)  fetchQuestion(roundN.roundId.toString());
+    if (roundN1?.roundId) fetchQuestion(roundN1.roundId.toString());
+    if (roundN2?.roundId) fetchQuestion(roundN2.roundId.toString());
+  }, [roundN?.roundId, roundN1?.roundId, roundN2?.roundId, fetchQuestion]);
 
-  useEffect(() => {
-    if (!roundN1?.roundId) return;
-    setQN1(null);
-    fetchQuestion(roundN1.roundId.toString(), setQN1);
-  }, [roundN1?.roundId?.toString()]);
-
-  useEffect(() => {
-    if (!roundN2?.roundId) return;
-    setQN2(null);
-    fetchQuestion(roundN2.roundId.toString(), setQN2);
-  }, [roundN2?.roundId?.toString()]);
+  // Derived per-slot questions from shared cache
+  const qN  = roundN?.roundId  ? (questionCache[roundN.roundId.toString()]  ?? null) : null;
+  const qN1 = roundN1?.roundId ? (questionCache[roundN1.roundId.toString()] ?? null) : null;
+  const qN2 = roundN2?.roundId ? (questionCache[roundN2.roundId.toString()] ?? null) : null;
 
   return (
     <div style={{ minHeight: "100vh" }}>
@@ -441,6 +538,14 @@ export function MineDashboard() {
             <div style={{ fontSize: 13, color: C.dim, paddingTop: 8 }}>no epoch open</div>
           )}
         </div>
+
+        {/* Recent rounds history — last 10 settled, expandable */}
+        <RecentRounds
+          allRoundsData={allRoundsData}
+          questionCache={questionCache}
+          fetchQuestion={fetchQuestion}
+          roundCount={roundCount}
+        />
 
         {/* Participate CTAs */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(100px, 1fr))", gap: 8, marginBottom: 24 }}>
