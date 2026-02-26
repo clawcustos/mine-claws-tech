@@ -263,7 +263,7 @@ export function MineDashboard() {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 1, background: "#1a1a1a", marginBottom: 20 }}>
           <Stat label="epoch"          value={epochLabel}      sub={`round ${roundCount?.toString() ?? "—"} / ${ROUNDS_PER_EPOCH}`} />
           <Stat label="active miners"  value={stakedAgents !== undefined ? stakedAgents.toString() : "—"} sub="staked agents" />
-          <Stat label="rounds in flight" value={rN ? "3" : rN1 ? "2" : rN ? "1" : "0"} sub="commit · reveal · settle" />
+          <Stat label="rounds in flight" value={rN ? "3" : rN1 ? "2" : rN ? "1" : "0"} sub="up to 3 active simultaneously" />
         </div>
 
         {/* 3-flight panel */}
@@ -283,7 +283,7 @@ export function MineDashboard() {
           {epochOpen ? (
             <>
               <FlightRow
-                label="N (commit)"
+                label="latest"
                 phase={phaseN.phase}
                 roundId={roundN?.roundId?.toString()}
                 countdown={phaseN.countdown}
@@ -295,7 +295,7 @@ export function MineDashboard() {
                 answer={roundN?.settled ? roundN.revealedAnswer : undefined}
               />
               <FlightRow
-                label="N-1 (reveal)"
+                label="N-1"
                 phase={phaseN1.phase}
                 roundId={roundN1?.roundId?.toString()}
                 countdown={phaseN1.countdown}
@@ -307,7 +307,7 @@ export function MineDashboard() {
                 answer={roundN1?.settled ? roundN1.revealedAnswer : undefined}
               />
               <FlightRow
-                label="N-2 (settle)"
+                label="N-2"
                 phase={phaseN2.phase}
                 roundId={roundN2?.roundId?.toString()}
                 countdown={phaseN2.countdown}
