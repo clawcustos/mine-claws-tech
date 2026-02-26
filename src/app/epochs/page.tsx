@@ -135,9 +135,9 @@ export default function EpochsPage() {
                           <div style={{ fontSize: 11 }}>
                             {epoch?.claimDeadline && Number(epoch.claimDeadline) > 0
                               ? new Date(Number(epoch.claimDeadline) * 1000).toLocaleDateString()
-                              : isCurrent && epochOpen ? "7 days after close" : "—"}
+                              : isCurrent && epochOpen ? "set at close" : "—"}
                           </div>
-                          <div style={{ color: "#aaa", fontSize: 10 }}>7 days after close</div>
+                          <div style={{ color: "#aaa", fontSize: 10 }}>7 days to claim</div>
                         </div>
                       </div>
                     </div>

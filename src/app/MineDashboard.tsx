@@ -67,7 +67,12 @@ function FlightRow({
         {question ?? "—"}
       </div>
       <div style={{ textAlign: "right", minWidth: 56 }}>
-        {answer && <div style={{ fontSize: 12, color: "#22c55e", fontWeight: 600, wordBreak: "break-all" }}>{answer}</div>}
+        {answer && (
+          <div style={{ fontSize: 11, color: "#22c55e", fontWeight: 600, wordBreak: "break-all", maxWidth: 90, marginLeft: "auto" }}
+               title={answer}>
+            {answer.length > 20 ? answer.slice(0, 10) + "…" + answer.slice(-8) : answer}
+          </div>
+        )}
         {settled && correctCount !== undefined && (
           <div style={{ fontSize: 10, color: C.sub, marginTop: 2 }}>{correctCount} correct</div>
         )}
