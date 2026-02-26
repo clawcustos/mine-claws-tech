@@ -27,10 +27,10 @@ const C = {
 
 function Stat({ label, value, sub, accent }: { label: string; value: string; sub?: string; accent?: boolean }) {
   return (
-    <div style={{ border: `1px solid ${C.border}`, padding: "18px 20px" }}>
-      <div style={{ fontSize: 10, color: C.label, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 6 }}>{label}</div>
-      <div style={{ fontSize: 22, fontWeight: 700, lineHeight: 1, color: accent ? "#dc2626" : "#fff" }}>{value}</div>
-      {sub && <div style={{ fontSize: 10, color: C.sub, marginTop: 4 }}>{sub}</div>}
+    <div style={{ border: `1px solid ${C.border}`, padding: "12px 14px" }}>
+      <div style={{ fontSize: 9, color: C.label, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 4 }}>{label}</div>
+      <div style={{ fontSize: "clamp(16px, 4vw, 22px)", fontWeight: 700, lineHeight: 1, color: accent ? "#dc2626" : "#fff" }}>{value}</div>
+      {sub && <div style={{ fontSize: 9, color: C.sub, marginTop: 4, lineHeight: 1.4 }}>{sub}</div>}
     </div>
   );
 }
@@ -46,7 +46,8 @@ function PulseDot({ color }: { color: string }) {
   );
 }
 
-// Single flight row: one of latest, N-1, N-2
+// Single flight row — responsive card layout
+// Mobile: stacked card. Desktop (>600px): 4-column grid via CSS class.
 function FlightRow({
   label, phase, roundId, countdown, countdownColor, question, answer, correctCount, settled, expired, awaitingOracle,
 }: {
@@ -60,70 +61,88 @@ function FlightRow({
     : phase === "settled"  ? "#22c55e"
     : C.dim;
 
+  const answerEl = settled && answer ? (
+    <>
+      <span style={{ color: "#22c55e", fontWeight: 600, wordBreak: "break-all" }} title={answer}>
+        {answer.length > 22 ? answer.slice(0, 10) + "…" + answer.slice(-8) : answer}
+      </span>
+      {correctCount !== undefined && (
+        <div style={{ fontSize: 10, color: C.sub, marginTop: 2 }}>
+          {correctCount} credit{correctCount !== 1 ? "s" : ""} issued
+        </div>
+      )}
+    </>
+  ) : awaitingOracle ? (
+    <span style={{ fontSize: 10, color: "#f97316" }}>answer sealed</span>
+  ) : null;
+
   return (
-    <div style={{
-      display: "grid", gridTemplateColumns: "68px 110px 1fr 120px", gap: 12,
-      alignItems: "start", padding: "14px 0", borderBottom: `1px solid #111`,
-    }}>
-      {/* Round label */}
+    <div className="flight-row">
+      <style>{`
+        .flight-row {
+          padding: 12px 0;
+          border-bottom: 1px solid #111;
+          display: grid;
+          grid-template-columns: 64px 100px 1fr;
+          gap: 10px;
+          align-items: start;
+        }
+        .flight-answer { display: none; }
+        .flight-meta   { display: none; }
+        @media (min-width: 560px) {
+          .flight-row {
+            grid-template-columns: 64px 100px 1fr 110px;
+          }
+          .flight-answer { display: block; text-align: right; }
+          .flight-meta   { display: none; }
+        }
+      `}</style>
+
+      {/* Round */}
       <div>
-        <div style={{ fontSize: 9, color: C.label, letterSpacing: "0.08em", marginBottom: 3, textTransform: "uppercase" }}>{label}</div>
-        <div style={{ fontSize: 13, fontWeight: 600, color: "#fff" }}>{roundId ? `#${roundId}` : "—"}</div>
+        <div style={{ fontSize: 9, color: C.label, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 2 }}>{label}</div>
+        <div style={{ fontSize: 13, fontWeight: 700, color: "#fff" }}>{roundId ? `#${roundId}` : "—"}</div>
       </div>
 
-      {/* Phase */}
+      {/* Phase + countdown */}
       <div>
-        <div style={{ fontSize: 11, color: phaseColor, fontWeight: 600, letterSpacing: "0.06em", display: "flex", alignItems: "center" }}>
-          {isLive && <PulseDot color={phaseColor} />}
-          {phase === "settling" && <PulseDot color="#f97316" />}
+        <div style={{ fontSize: 11, color: phaseColor, fontWeight: 600, letterSpacing: "0.05em", display: "flex", alignItems: "center", gap: 4 }}>
+          {(isLive || phase === "settling") && <PulseDot color={phaseColor} />}
           {phase.toUpperCase()}
         </div>
         {countdown !== undefined && countdown > 0 && (
-          <div style={{ fontSize: 12, color: countdownColor, fontVariantNumeric: "tabular-nums", marginTop: 3, fontWeight: 500 }}>
+          <div style={{ fontSize: 12, color: countdownColor, fontVariantNumeric: "tabular-nums", marginTop: 2, fontWeight: 500 }}>
             {formatCountdown(countdown)}
           </div>
         )}
         {awaitingOracle && (
-          <div style={{ fontSize: 9, color: "#f97316", marginTop: 4, lineHeight: 1.4 }}>
-            verifying reveals<br />
-            <span style={{ color: C.dim }}>oracle settles next tick</span>
+          <div style={{ fontSize: 9, color: "#f97316", marginTop: 3, lineHeight: 1.4 }}>
+            verifying reveals<br /><span style={{ color: C.dim }}>oracle next tick</span>
           </div>
         )}
-        {settled && <div style={{ fontSize: 10, color: "#22c55e", marginTop: 3 }}>✓ settled</div>}
-        {expired && !settled && <div style={{ fontSize: 10, color: C.dim, marginTop: 3 }}>expired</div>}
+        {settled && <div style={{ fontSize: 10, color: "#22c55e", marginTop: 2 }}>✓ settled</div>}
+        {expired && !settled && <div style={{ fontSize: 10, color: C.dim, marginTop: 2 }}>expired</div>}
       </div>
 
-      {/* Question */}
-      <div style={{ fontSize: 11, color: C.text, lineHeight: 1.5, wordBreak: "break-word" }}>
-        {question
-          ? question
-          : roundId
-            ? <span style={{ color: "#333", fontStyle: "italic" }}>fetching question…</span>
-            : "—"}
+      {/* Question — on mobile this also shows answer inline below */}
+      <div>
+        <div style={{ fontSize: 11, color: C.text, lineHeight: 1.5, wordBreak: "break-word" }}>
+          {question
+            ? question
+            : roundId
+              ? <span style={{ color: "#333", fontStyle: "italic" }}>fetching…</span>
+              : "—"}
+        </div>
+        {/* Mobile-only: answer shown under question */}
+        <div style={{ marginTop: 6, fontSize: 11, lineHeight: 1.4 }} className="flight-meta-inline">
+          <style>{`.flight-meta-inline { display: block; } @media (min-width: 560px) { .flight-meta-inline { display: none; } }`}</style>
+          {answerEl}
+        </div>
       </div>
 
-      {/* Answer + credits */}
-      <div style={{ textAlign: "right" }}>
-        {settled && answer ? (
-          <>
-            <div style={{ fontSize: 11, color: "#22c55e", fontWeight: 600, wordBreak: "break-all", lineHeight: 1.4 }}
-                 title={answer}>
-              {answer.length > 22 ? answer.slice(0, 10) + "…" + answer.slice(-8) : answer}
-            </div>
-            {correctCount !== undefined && (
-              <div style={{ fontSize: 10, color: C.sub, marginTop: 3 }}>
-                {correctCount} correct · {correctCount} credit{correctCount !== 1 ? "s" : ""} issued
-              </div>
-            )}
-          </>
-        ) : awaitingOracle ? (
-          <div style={{ fontSize: 10, color: "#f97316", lineHeight: 1.5 }}>
-            answer sealed<br />
-            <span style={{ color: C.dim, fontSize: 9 }}>revealed at settle</span>
-          </div>
-        ) : settled && correctCount !== undefined ? (
-          <div style={{ fontSize: 10, color: C.sub }}>{correctCount} credit{correctCount !== 1 ? "s" : ""} issued</div>
-        ) : null}
+      {/* Desktop-only answer column */}
+      <div className="flight-answer" style={{ fontSize: 11 }}>
+        {answerEl}
       </div>
     </div>
   );
@@ -352,7 +371,7 @@ export function MineDashboard() {
         </div>
 
         {/* What is this — agent framing */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 1, background: C.border, marginBottom: 20 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 1, background: C.border, marginBottom: 20 }}>
           {([
             ["mine", "Set up an agent on CustosNetwork. Every 10 minutes it answers an onchain question to earn $CUSTOS."],
             ["work", "While mining, your agent can carry out one useful task per loop — anything you configure it to do."],
@@ -366,21 +385,21 @@ export function MineDashboard() {
         </div>
 
         {/* Stats row 1 */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 1, background: C.border, marginBottom: 1 }}>
-          <Stat label="epoch rewards"   value={rewardPool}     sub={rewardUsd ?? "$CUSTOS pool"} accent />
-          <Stat label="credits issued"   value={totalCredits}   sub="across all settled rounds" />
-          <Stat label="epoch ends in"   value={epochOpen && epochEndAt ? formatCountdown(epochTimeLeft) : "—"} sub={epochEndAt ? new Date(epochEndAt * 1000).toUTCString().replace(" GMT", " UTC") : "24h per epoch"} />
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 1, background: C.border, marginBottom: 1 }}>
+          <Stat label="epoch rewards"  value={rewardPool}   sub={rewardUsd ?? "$CUSTOS pool"} accent />
+          <Stat label="credits issued" value={totalCredits} sub="settled rounds" />
+          <Stat label="epoch ends in"  value={epochOpen && epochEndAt ? formatCountdown(epochTimeLeft) : "—"} sub={epochEndAt ? new Date(epochEndAt * 1000).toUTCString().replace(" GMT", " UTC") : "24h / epoch"} />
         </div>
 
         {/* Stats row 2 */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 1, background: C.border, marginBottom: 20 }}>
-          <Stat label="epoch"            value={epochLabel}      sub={`round ${roundCount?.toString() ?? "—"} / ${ROUNDS_PER_EPOCH}`} />
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 1, background: C.border, marginBottom: 20 }}>
+          <Stat label="epoch"            value={epochLabel}  sub={`round ${roundCount?.toString() ?? "—"} / ${ROUNDS_PER_EPOCH}`} />
           <Stat label="active miners"    value={stakedAgents !== undefined ? stakedAgents.toString() : "—"} sub="staked agents" />
-          <Stat label="rounds in flight" value={rN ? "3" : rN1 ? "2" : rN ? "1" : "0"} sub="up to 3 active simultaneously" />
+          <Stat label="rounds in flight" value={rN ? "3" : rN1 ? "2" : "0"} sub="simultaneous" />
         </div>
 
         {/* 3-flight panel */}
-        <div style={{ border: `1px solid ${C.border}`, padding: "18px 20px", marginBottom: 20 }}>
+        <div style={{ border: `1px solid ${C.border}`, padding: "14px 14px", marginBottom: 20 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
             <div style={{ fontSize: 10, color: C.label, letterSpacing: "0.1em" }}>
               ROLLING WINDOW — 3 ROUNDS IN FLIGHT SIMULTANEOUSLY
@@ -392,12 +411,24 @@ export function MineDashboard() {
             ) : null}
           </div>
 
-          {/* Table header */}
-          <div style={{ display: "grid", gridTemplateColumns: "68px 110px 1fr 120px", gap: 12, marginBottom: 4, paddingBottom: 6, borderBottom: `1px solid #0f0f0f` }}>
+          {/* Table header — matches flight-row responsive grid */}
+          <div className="flight-header" style={{ marginBottom: 4, paddingBottom: 6, borderBottom: `1px solid #0f0f0f` }}>
+            <style>{`
+              .flight-header {
+                display: grid;
+                grid-template-columns: 64px 100px 1fr;
+                gap: 10px;
+              }
+              .flight-header-answer { display: none; }
+              @media (min-width: 560px) {
+                .flight-header { grid-template-columns: 64px 100px 1fr 110px; }
+                .flight-header-answer { display: block; text-align: right; }
+              }
+            `}</style>
             <div style={{ fontSize: 9, color: C.tableHdr, letterSpacing: "0.08em" }}>ROUND</div>
             <div style={{ fontSize: 9, color: C.tableHdr, letterSpacing: "0.08em" }}>PHASE</div>
             <div style={{ fontSize: 9, color: C.tableHdr, letterSpacing: "0.08em" }}>QUESTION</div>
-            <div style={{ fontSize: 9, color: C.tableHdr, letterSpacing: "0.08em", textAlign: "right" }}>ANSWER / CREDITS</div>
+            <div className="flight-header-answer" style={{ fontSize: 9, color: C.tableHdr, letterSpacing: "0.08em" }}>ANSWER / CREDITS</div>
           </div>
 
           {epochOpen ? (
