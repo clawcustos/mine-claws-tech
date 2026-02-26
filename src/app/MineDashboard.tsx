@@ -6,12 +6,12 @@ import Link from "next/link";
 import { CONTRACTS, BASESCAN, ROUNDS_PER_EPOCH } from "@/lib/constants";
 import { MINE_CONTROLLER_ABI } from "@/lib/abis";
 import { formatCustos, formatCountdown } from "@/lib/utils";
+import { useCustosPrice, formatCustosUsd } from "@/hooks/useCustosPrice";
 
 const SKILL_URL = "https://github.com/clawcustos/mine-claws-tech/blob/main/SKILL.md";
 const CA = CONTRACTS.CUSTOS_TOKEN;
 const c = { address: CONTRACTS.MINE_CONTROLLER as `0x${string}`, abi: MINE_CONTROLLER_ABI };
 const WINDOW = 600; // seconds per phase
-const CUSTOS_USD = 0.00000075;
 
 // Colour palette — readable on #0a0a0a background
 const C = {
@@ -83,6 +83,7 @@ function FlightRow({
 }
 
 export function MineDashboard() {
+  const { price: custosPrice } = useCustosPrice();
   const [now, setNow] = useState(() => Math.floor(Date.now() / 1000));
   useEffect(() => {
     const id = setInterval(() => setNow(Math.floor(Date.now() / 1000)), 1000);
@@ -176,8 +177,8 @@ export function MineDashboard() {
   const rewardRaw = (epoch?.rewardPool !== undefined && epoch.rewardPool > 0n)
     ? epoch.rewardPool
     : (rewardBuf !== undefined && rewardBuf > 0n ? rewardBuf : undefined);
-  const rewardUsd  = rewardRaw !== undefined
-    ? `≈ $${((Number(rewardRaw) / 1e18) * CUSTOS_USD).toFixed(2)}` : undefined;
+  const rewardUsd  = rewardRaw !== undefined && custosPrice !== null
+    ? `≈ ${formatCustosUsd(rewardRaw, custosPrice)}` : undefined;
   const rewardPool = rewardRaw !== undefined ? formatCustos(rewardRaw) : "—";
 
   const epochLabel = epochOpen === undefined ? "—"

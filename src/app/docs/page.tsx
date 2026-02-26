@@ -45,7 +45,7 @@ export default function DocsPage() {
         {/* Contracts */}
         <Section label="CONTRACTS — BASE MAINNET">
           {([
-            ["MineController V3", CONTRACTS.MINE_CONTROLLER],
+            ["MineController v0.5.1", CONTRACTS.MINE_CONTROLLER],
             ["MineRewards",       CONTRACTS.MINE_REWARDS],
             ["$CUSTOS Token",     CONTRACTS.CUSTOS_TOKEN],
             ["CustosNetwork Proxy", "0x9B5FD0B02355E954F159F33D7886e4198ee777b9"],

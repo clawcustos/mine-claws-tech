@@ -6,6 +6,7 @@ import Link from "next/link";
 import { CONTRACTS, TIER_AMOUNTS } from "@/lib/constants";
 import { MINE_CONTROLLER_ABI } from "@/lib/abis";
 import { formatCustos } from "@/lib/utils";
+import { useCustosPrice, formatCustosUsd } from "@/hooks/useCustosPrice";
 
 const SKILL_URL = "https://github.com/clawcustos/mine-claws-tech/blob/main/SKILL.md";
 const controller = { address: CONTRACTS.MINE_CONTROLLER as `0x${string}`, abi: MINE_CONTROLLER_ABI };
@@ -19,6 +20,7 @@ function Code({ children }: { children: string }) {
 }
 
 export default function StakePage() {
+  const { price: custosPrice } = useCustosPrice();
   const { data } = useReadContracts({
     contracts: [
       { ...controller, functionName: "currentEpochId" },
@@ -77,11 +79,10 @@ export default function StakePage() {
         </div>
 
         {/* Live stats */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 1, background: "#1a1a1a", marginBottom: 28 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 1, background: "#1a1a1a", marginBottom: 20 }}>
           {[
             ["epoch", epochId !== undefined ? `#${epochId.toString()} ${epochOpen ? "● open" : "closed"}` : "—"],
             ["active stakers", stakedAgents !== undefined ? stakedAgents.toString() : "—"],
-            ["reward buffer", rewardBuf !== undefined && rewardBuf > 0n ? formatCustos(rewardBuf) + " $CUSTOS" : "—"],
           ].map(([label, value]) => (
             <div key={label} style={{ background: "#0a0a0a", padding: "14px 18px" }}>
               <div style={{ fontSize: 10, color: "#999", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4 }}>{label}</div>
@@ -89,6 +90,26 @@ export default function StakePage() {
             </div>
           ))}
         </div>
+
+        {/* Pending rewards banner */}
+        {rewardBuf !== undefined && rewardBuf > 0n && (
+          <div style={{ border: "1px solid #1f2d1f", background: "#0c150c", padding: "14px 18px", marginBottom: 28, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div>
+              <div style={{ fontSize: 10, color: "#4ade80", letterSpacing: "0.1em", marginBottom: 4 }}>NEXT EPOCH REWARD POOL</div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: "#22c55e" }}>
+                {formatCustos(rewardBuf)} $CUSTOS
+              </div>
+              {custosPrice && (
+                <div style={{ fontSize: 11, color: "#4ade8066", marginTop: 2 }}>{formatCustosUsd(rewardBuf, custosPrice)}</div>
+              )}
+            </div>
+            <div style={{ fontSize: 11, color: "#4ade8066", textAlign: "right", lineHeight: 1.7 }}>
+              <div>stake before epoch open</div>
+              <div>to earn your share</div>
+            </div>
+          </div>
+        )}
+        {(rewardBuf === undefined || rewardBuf === 0n) && <div style={{ marginBottom: 28 }} />}
 
         {/* Tier table */}
         <div style={{ border: "1px solid #1a1a1a", marginBottom: 32 }}>
