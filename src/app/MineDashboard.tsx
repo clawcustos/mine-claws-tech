@@ -37,10 +37,10 @@ function Stat({ label, value, sub, accent }: { label: string; value: string; sub
 
 // Single flight row: one of latest, N-1, N-2
 function FlightRow({
-  label, phase, roundId, countdown, countdownColor, question, answer, correctCount, settled, expired,
+  label, phase, roundId, countdown, countdownColor, question, answer, correctCount, settled, expired, awaitingOracle,
 }: {
   label: string; phase: string; roundId?: string; countdown?: number; countdownColor: string;
-  question?: string | null; answer?: string; correctCount?: number; settled?: boolean; expired?: boolean;
+  question?: string | null; answer?: string; correctCount?: number; settled?: boolean; expired?: boolean; awaitingOracle?: boolean;
 }) {
   const phaseColor = phase === "commit" ? "#fff"
     : phase === "reveal"   ? "#eab308"
@@ -59,6 +59,7 @@ function FlightRow({
             {formatCountdown(countdown)}
           </div>
         )}
+        {awaitingOracle && <div style={{ fontSize: 9, color: C.dim, marginTop: 3 }}>awaiting oracle</div>}
         {settled && <div style={{ fontSize: 10, color: "#22c55e", marginTop: 2 }}>✓</div>}
         {expired && !settled && <div style={{ fontSize: 10, color: C.dim, marginTop: 2 }}>expired</div>}
       </div>
@@ -70,6 +71,7 @@ function FlightRow({
         {settled && correctCount !== undefined && (
           <div style={{ fontSize: 10, color: C.sub, marginTop: 2 }}>{correctCount} correct</div>
         )}
+        {awaitingOracle && <div style={{ fontSize: 9, color: C.dim }}>~next tick</div>}
       </div>
     </div>
   );
@@ -176,7 +178,7 @@ export function MineDashboard() {
   const epochLabel = epochOpen === undefined ? "—"
     : epochOpen ? `#${epochId} open` : epochId && epochId > 0n ? `#${epochId} closed` : "awaiting";
 
-  function getPhase(r: any): { phase: string; countdown?: number; countdownColor: string } {
+  function getPhase(r: any): { phase: string; countdown?: number; countdownColor: string; awaitingOracle?: boolean } {
     if (!r || r.roundId === 0n) return { phase: "—", countdownColor: C.dim };
     const commitLeft = Math.max(0, Number(r.commitCloseAt) - now);
     const revealLeft = Math.max(0, Number(r.revealCloseAt) - now);
@@ -184,12 +186,18 @@ export function MineDashboard() {
     if (r.expired) return { phase: "expired", countdownColor: C.dim };
     if (commitLeft > 0) return { phase: "commit", countdown: commitLeft, countdownColor: "#fff" };
     if (revealLeft > 0) return { phase: "reveal", countdown: revealLeft, countdownColor: "#eab308" };
-    return { phase: "settling", countdownColor: C.dim };
+    // reveal window closed, not settled yet — oracle settles at next 10-min tick
+    return { phase: "settling", countdownColor: C.dim, awaitingOracle: true };
   }
 
   const phaseN  = getPhase(roundN);
   const phaseN1 = getPhase(roundN1);
   const phaseN2 = getPhase(roundN2);
+
+  // For settling rows, pass awaitingOracle flag to show helpful sub-text
+  const awaitingN  = phaseN.awaitingOracle;
+  const awaitingN1 = phaseN1.awaitingOracle;
+  const awaitingN2 = phaseN2.awaitingOracle;
 
   const [qN,  setQN]  = useState<string | null>(null);
   const [qN1, setQN1] = useState<string | null>(null);
@@ -293,9 +301,9 @@ export function MineDashboard() {
 
           {epochOpen ? (
             <>
-              <FlightRow label="latest" phase={phaseN.phase}  roundId={roundN?.roundId?.toString()}  countdown={phaseN.countdown}  countdownColor={phaseN.countdownColor}  question={qN}  settled={roundN?.settled}  expired={roundN?.expired}  correctCount={roundN?.settled  ? Number(roundN.correctCount)  : undefined} answer={roundN?.settled  ? roundN.revealedAnswer  : undefined} />
-              <FlightRow label="N-1"    phase={phaseN1.phase} roundId={roundN1?.roundId?.toString()} countdown={phaseN1.countdown} countdownColor={phaseN1.countdownColor} question={qN1} settled={roundN1?.settled} expired={roundN1?.expired} correctCount={roundN1?.settled ? Number(roundN1.correctCount) : undefined} answer={roundN1?.settled ? roundN1.revealedAnswer : undefined} />
-              <FlightRow label="N-2"    phase={phaseN2.phase} roundId={roundN2?.roundId?.toString()} countdown={phaseN2.countdown} countdownColor={phaseN2.countdownColor} question={qN2} settled={roundN2?.settled} expired={roundN2?.expired} correctCount={roundN2?.settled ? Number(roundN2.correctCount) : undefined} answer={roundN2?.settled ? roundN2.revealedAnswer : undefined} />
+              <FlightRow label="latest" phase={phaseN.phase}  roundId={roundN?.roundId?.toString()}  countdown={phaseN.countdown}  countdownColor={phaseN.countdownColor}  question={qN}  settled={roundN?.settled}  expired={roundN?.expired}  awaitingOracle={awaitingN}  correctCount={roundN?.settled  ? Number(roundN.correctCount)  : undefined} answer={roundN?.settled  ? roundN.revealedAnswer  : undefined} />
+              <FlightRow label="N-1"    phase={phaseN1.phase} roundId={roundN1?.roundId?.toString()} countdown={phaseN1.countdown} countdownColor={phaseN1.countdownColor} question={qN1} settled={roundN1?.settled} expired={roundN1?.expired} awaitingOracle={awaitingN1} correctCount={roundN1?.settled ? Number(roundN1.correctCount) : undefined} answer={roundN1?.settled ? roundN1.revealedAnswer : undefined} />
+              <FlightRow label="N-2"    phase={phaseN2.phase} roundId={roundN2?.roundId?.toString()} countdown={phaseN2.countdown} countdownColor={phaseN2.countdownColor} question={qN2} settled={roundN2?.settled} expired={roundN2?.expired} awaitingOracle={awaitingN2} correctCount={roundN2?.settled ? Number(roundN2.correctCount) : undefined} answer={roundN2?.settled ? roundN2.revealedAnswer : undefined} />
             </>
           ) : (
             <div style={{ fontSize: 13, color: C.dim, paddingTop: 8 }}>no epoch open</div>
