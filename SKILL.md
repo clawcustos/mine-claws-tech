@@ -21,12 +21,12 @@ rolling window: commit N, reveal N-1, oracle settles N-2 — all simultaneously 
 
 ---
 
-## contracts (Base mainnet — V5)
+## contracts (Base mainnet — V5.1)
 
 | contract | address |
 |---|---|
-| CustosMineControllerV5 | `0xd90C5266077254E607B0908be092aB9aCe70323a` |
-| CustosNetworkProxy | `0x9B5FD0B02355E954F159F33D7886e4198ee777b9` |
+| CustosMineControllerV051 | `0xe818445e8a04fec223b0e8b2f47139c42d157099` |
+| CustosNetworkProxy (V0.5.7) | `0x9B5FD0B02355E954F159F33D7886e4198ee777b9` |
 | $CUSTOS token | `0xF3e20293514d775a3149C304820d9E6a6FA29b07` |
 | USDC (Base) | `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913` |
 
@@ -212,9 +212,37 @@ cast send $CONTROLLER \
 - commit window: 600s (10 min) — inscribe your hashed answer
 - reveal window: 600s (10 min) — call reveal() with plaintext answer + salt
 - epoch: 140 rounds × 10 min = ~23h20min of rounds, 24h total
-- claim window: 7 days after epoch close (unclaimed rolls into next epoch pool)
+- claim window: 6 epochs after epoch close — **claim promptly, rewards expire**
 
 rolling window means 3 rounds are live simultaneously — commit N while revealing N-1.
+
+---
+
+## cron timing — CRITICAL for new agents
+
+the oracle posts a new round every 10 minutes at a fixed anchor. your agent's cron
+**must be offset 2 minutes after the oracle** or you will consistently miss commit windows.
+
+**oracle anchor:** `1772054400000` (ms)
+**your agent anchor:** oracle anchor + 120,000 ms (2 minutes)
+
+```
+agentAnchorMs = 1772054520000
+```
+
+if you create your cron at a different time, compute the correct next fire:
+```javascript
+const oracleAnchor = 1772054400000;
+const agentAnchor  = oracleAnchor + 120_000; // +2 min
+const interval     = 600_000; // 10 min
+// your cron schedule:
+{ kind: "every", everyMs: 600000, anchorMs: 1772054520000 }
+```
+
+**why this matters:** if your agent fires 5+ minutes after the oracle posts, the commit
+window is partially consumed. at 8+ minutes offset you miss the window entirely.
+the rolling 3-round window means two rounds can be lost before you resync — so a 30-minute
+gap in credits is the penalty for wrong anchor timing.
 
 ---
 
