@@ -13,12 +13,50 @@ const c = { address: CONTRACTS.MINE_CONTROLLER as `0x${string}`, abi: MINE_CONTR
 const WINDOW = 600; // seconds per phase
 const CUSTOS_USD = 0.00000075;
 
+
 function Stat({ label, value, sub, accent }: { label: string; value: string; sub?: string; accent?: boolean }) {
   return (
     <div style={{ border: "1px solid #1a1a1a", padding: "18px 20px" }}>
       <div style={{ fontSize: 10, color: "#555", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 6 }}>{label}</div>
       <div style={{ fontSize: 22, fontWeight: 700, lineHeight: 1, color: accent ? "#dc2626" : "#fff" }}>{value}</div>
       {sub && <div style={{ fontSize: 10, color: "#444", marginTop: 4 }}>{sub}</div>}
+    </div>
+  );
+}
+
+// Single flight row: one of N, N-1, N-2
+function FlightRow({
+  label, phase, roundId, countdown, countdownColor, question, answer, correctCount, settled, expired,
+}: {
+  label: string; phase: string; roundId?: string; countdown?: number; countdownColor: string;
+  question?: string | null; answer?: string; correctCount?: number; settled?: boolean; expired?: boolean;
+}) {
+  const phaseColor = phase === "commit" ? "#fff" : phase === "reveal" ? "#eab308" : phase === "settling" ? "#555" : "#333";
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "90px 80px 1fr auto", gap: 12, alignItems: "start", padding: "12px 0", borderBottom: "1px solid #111" }}>
+      <div>
+        <div style={{ fontSize: 10, color: "#555", letterSpacing: "0.08em", marginBottom: 3 }}>{label}</div>
+        <div style={{ fontSize: 12, color: "#444" }}>{roundId ? `#${roundId}` : "—"}</div>
+      </div>
+      <div>
+        <div style={{ fontSize: 11, color: phaseColor, fontWeight: 600, letterSpacing: "0.06em" }}>{phase.toUpperCase()}</div>
+        {countdown !== undefined && countdown > 0 && (
+          <div style={{ fontSize: 11, color: countdownColor, fontVariantNumeric: "tabular-nums", marginTop: 2 }}>
+            {formatCountdown(countdown)}
+          </div>
+        )}
+        {settled && <div style={{ fontSize: 10, color: "#22c55e", marginTop: 2 }}>settled</div>}
+        {expired && !settled && <div style={{ fontSize: 10, color: "#555", marginTop: 2 }}>expired</div>}
+      </div>
+      <div style={{ fontSize: 12, color: "#666", lineHeight: 1.45, wordBreak: "break-word" }}>
+        {question ?? "—"}
+      </div>
+      <div style={{ textAlign: "right", minWidth: 60 }}>
+        {answer && <div style={{ fontSize: 12, color: "#22c55e", fontWeight: 600, wordBreak: "break-all" }}>{answer}</div>}
+        {settled && correctCount !== undefined && (
+          <div style={{ fontSize: 10, color: "#444", marginTop: 2 }}>{correctCount} correct</div>
+        )}
+      </div>
     </div>
   );
 }
@@ -56,21 +94,28 @@ export function MineDashboard() {
   });
   const epoch = epochData?.[0]?.result as any;
 
-  const { data: curData } = useReadContracts({
-    contracts: epochOpen && roundCount && roundCount > 0n ? [{ ...c, functionName: "getCurrentRound" }] : [],
-    query: { enabled: !!epochOpen, refetchInterval: 10_000 },
-  });
-  const cur = curData?.[0]?.result as any;
+  // ── 3-flight rounds: N (commit), N-1 (reveal), N-2 (settling) ──────────────
+  const rN   = roundCount && roundCount > 0n ? roundCount       : undefined;
+  const rN1  = roundCount && roundCount > 1n ? roundCount - 1n  : undefined;
+  const rN2  = roundCount && roundCount > 2n ? roundCount - 2n  : undefined;
 
-  // Previous round (for settled answer display)
-  const prevId = roundCount && roundCount > 1n ? roundCount - 1n : undefined;
-  const { data: prevData } = useReadContracts({
-    contracts: prevId ? [{ ...c, functionName: "getRound", args: [prevId] }] : [],
-    query: { enabled: !!prevId, refetchInterval: 15_000 },
+  const flight3Contracts = [
+    ...(rN  ? [{ ...c, functionName: "getRound" as const, args: [rN]  }] : []),
+    ...(rN1 ? [{ ...c, functionName: "getRound" as const, args: [rN1] }] : []),
+    ...(rN2 ? [{ ...c, functionName: "getRound" as const, args: [rN2] }] : []),
+  ];
+  const { data: flightData } = useReadContracts({
+    contracts: flight3Contracts,
+    query: { enabled: flight3Contracts.length > 0 && !!epochOpen, refetchInterval: 10_000 },
   });
-  const prev = prevData?.[0]?.result as any;
 
-  // Round 1 — needed to derive epoch end when epoch.endAt is unreliable (startAt=0 bug)
+  // Map back to round data by position
+  let idx = 0;
+  const roundN   = rN  ? (flightData?.[idx++]?.result as any) : undefined;
+  const roundN1  = rN1 ? (flightData?.[idx++]?.result as any) : undefined;
+  const roundN2  = rN2 ? (flightData?.[idx++]?.result as any) : undefined;
+
+  // Round 1 for epoch-end derivation
   const { data: r1Data } = useReadContracts({
     contracts: epochOpen && roundCount && roundCount > 0n
       ? [{ ...c, functionName: "getRound", args: [1n] }] : [],
@@ -78,8 +123,7 @@ export function MineDashboard() {
   });
   const round1 = r1Data?.[0]?.result as any;
 
-  // Total credits earned this epoch — sum correctCount across ALL settled rounds
-  // We fetch the last 5 settled rounds to approximate; true total comes from epochCredits mapping
+  // Total credits (last 10 settled rounds)
   const settledRoundIds = roundCount && roundCount > 0n
     ? Array.from({ length: Math.min(Number(roundCount), 10) }, (_, i) => BigInt(Number(roundCount) - i)).filter(n => n > 0n)
     : [];
@@ -94,22 +138,19 @@ export function MineDashboard() {
       }, 0)
     : 0;
 
-  // Epoch end: use epoch.endAt if sane (> year 2024), else derive from round 1 commitOpenAt + 140*600s
+  // Epoch end
   const epochEndAt: number | undefined = (() => {
     if (epoch?.endAt && Number(epoch.endAt) > 1_700_000_000) return Number(epoch.endAt);
     if (round1?.commitOpenAt && Number(round1.commitOpenAt) > 0)
-      return Number(round1.commitOpenAt) + ROUNDS_PER_EPOCH * WINDOW; // rolling: new round every WINDOW seconds
+      return Number(round1.commitOpenAt) + ROUNDS_PER_EPOCH * WINDOW;
     return undefined;
   })();
   const epochTimeLeft = epochEndAt ? Math.max(0, epochEndAt - now) : 0;
 
-  // Correct answers: sum correctCount across last 10 settled rounds (live mid-epoch view)
-  // epoch.totalCredits only fills at epoch close
   const totalCredits = epoch?.totalCredits !== undefined && epoch.totalCredits > 0n
     ? epoch.totalCredits.toString()
     : totalCorrectAnswers > 0 ? totalCorrectAnswers.toString() : "0";
 
-  // Reward pool
   const rewardRaw = (epoch?.rewardPool !== undefined && epoch.rewardPool > 0n)
     ? epoch.rewardPool
     : (rewardBuf !== undefined && rewardBuf > 0n ? rewardBuf : undefined);
@@ -120,37 +161,50 @@ export function MineDashboard() {
   const epochLabel = epochOpen === undefined ? "—"
     : epochOpen ? `#${epochId} open` : epochId && epochId > 0n ? `#${epochId} closed` : "awaiting";
 
-  // Window display — live countdown
-  const commitLeft = cur ? Math.max(0, Number(cur.commitCloseAt) - now) : 0;
-  const revealLeft = cur ? Math.max(0, Number(cur.revealCloseAt) - now) : 0;
-  const inCommit   = commitLeft > 0;
-  const inReveal   = !inCommit && revealLeft > 0;
-  const windowLabel = cur
-    ? inCommit  ? `commit · ${formatCountdown(commitLeft)}`
-    : inReveal  ? `reveal · ${formatCountdown(revealLeft)}`
-    : "settling…" : "—";
+  // Derive phase for each flight
+  function getPhase(r: any): { phase: string; countdown?: number; countdownColor: string } {
+    if (!r || r.roundId === 0n) return { phase: "—", countdownColor: "#555" };
+    const commitLeft = Math.max(0, Number(r.commitCloseAt) - now);
+    const revealLeft = Math.max(0, Number(r.revealCloseAt) - now);
+    if (r.settled) return { phase: "settled", countdownColor: "#22c55e" };
+    if (r.expired) return { phase: "expired", countdownColor: "#555" };
+    if (commitLeft > 0) return { phase: "commit", countdown: commitLeft, countdownColor: "#fff" };
+    if (revealLeft > 0) return { phase: "reveal", countdown: revealLeft, countdownColor: "#eab308" };
+    return { phase: "settling", countdownColor: "#555" };
+  }
 
-  // Current and previous round questions — fetched from /api/questions/[roundId]
-  const [curQuestion, setCurQuestion]   = useState<string | null>(null);
-  const [prevQuestion, setPrevQuestion] = useState<string | null>(null);
+  const phaseN  = getPhase(roundN);
+  const phaseN1 = getPhase(roundN1);
+  const phaseN2 = getPhase(roundN2);
+
+  // Questions for all 3 flights
+  const [qN,  setQN]  = useState<string | null>(null);
+  const [qN1, setQN1] = useState<string | null>(null);
+  const [qN2, setQN2] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!cur?.roundId) return;
-    fetch(`/api/questions/${cur.roundId}`)
+    if (!roundN?.roundId) return;
+    fetch(`/api/questions/${roundN.roundId}`)
       .then(r => r.ok ? r.json() : null)
-      .then(d => d?.question ? setCurQuestion(d.question) : setCurQuestion(cur.questionUri))
-      .catch(() => setCurQuestion(cur.questionUri));
-  }, [cur?.roundId]);
+      .then(d => setQN(d?.question ?? roundN.questionUri ?? null))
+      .catch(() => setQN(roundN.questionUri ?? null));
+  }, [roundN?.roundId?.toString()]);
 
   useEffect(() => {
-    if (!prev?.roundId) return;
-    fetch(`/api/questions/${prev.roundId}`)
+    if (!roundN1?.roundId) return;
+    fetch(`/api/questions/${roundN1.roundId}`)
       .then(r => r.ok ? r.json() : null)
-      .then(d => d?.question ? setPrevQuestion(d.question) : setPrevQuestion(prev.questionUri))
-      .catch(() => setPrevQuestion(prev.questionUri));
-  }, [prev?.roundId]);
+      .then(d => setQN1(d?.question ?? roundN1.questionUri ?? null))
+      .catch(() => setQN1(roundN1.questionUri ?? null));
+  }, [roundN1?.roundId?.toString()]);
 
-  const question = curQuestion;
+  useEffect(() => {
+    if (!roundN2?.roundId) return;
+    fetch(`/api/questions/${roundN2.roundId}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => setQN2(d?.question ?? roundN2.questionUri ?? null))
+      .catch(() => setQN2(roundN2.questionUri ?? null));
+  }, [roundN2?.roundId?.toString()]);
 
   return (
     <div style={{ minHeight: "100vh" }}>
@@ -207,62 +261,65 @@ export function MineDashboard() {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 1, background: "#1a1a1a", marginBottom: 20 }}>
           <Stat label="epoch"          value={epochLabel}      sub={`round ${roundCount?.toString() ?? "—"} / ${ROUNDS_PER_EPOCH}`} />
           <Stat label="active miners"  value={stakedAgents !== undefined ? stakedAgents.toString() : "—"} sub="staked agents" />
-          <Stat label="current window" value={windowLabel}     sub={cur ? `round #${cur.roundId?.toString()}` : "—"} />
+          <Stat label="rounds in flight" value={rN ? "3" : rN1 ? "2" : rN ? "1" : "0"} sub="commit · reveal · settle" />
         </div>
 
-        {/* Current question */}
-        <div style={{ border: "1px solid #1a1a1a", padding: "18px 20px", marginBottom: 10 }}>
-          <div style={{ fontSize: 10, color: "#555", letterSpacing: "0.1em", marginBottom: 10, display: "flex", justifyContent: "space-between" }}>
-            <span>CURRENT ROUND QUESTION</span>
-            {cur?.roundId !== undefined && <span style={{ color: "#333" }}>#{cur.roundId.toString()}</span>}
+        {/* 3-flight panel */}
+        <div style={{ border: "1px solid #1a1a1a", padding: "18px 20px", marginBottom: 20 }}>
+          <div style={{ fontSize: 10, color: "#555", letterSpacing: "0.1em", marginBottom: 14 }}>
+            ROLLING WINDOW — 3 ROUNDS IN FLIGHT SIMULTANEOUSLY
           </div>
-          <div style={{ fontSize: 14, color: question ? "#e5e5e5" : "#333", lineHeight: 1.55, wordBreak: "break-word" }}>
-            {question ?? (epochOpen ? "waiting for oracle to post round…" : "no epoch open")}
-          </div>
-          {cur && inCommit && (
-            <div style={{ marginTop: 10, fontSize: 11, color: "#555" }}>
-              commit window · <span style={{ color: "#fff", fontVariantNumeric: "tabular-nums" }}>{formatCountdown(commitLeft)}</span> remaining
-            </div>
-          )}
-          {cur && inReveal && (
-            <div style={{ marginTop: 10, fontSize: 11, color: "#eab308" }}>
-              reveal window · <span style={{ fontVariantNumeric: "tabular-nums" }}>{formatCountdown(revealLeft)}</span> remaining
-            </div>
-          )}
-          {cur && !inCommit && !inReveal && cur.roundId !== undefined && (
-            <div style={{ marginTop: 10, fontSize: 11, color: "#555" }}>settling…</div>
-          )}
-          {/* Agents answered this round — show correctCount post-settle */}
-          {cur?.settled && cur?.correctCount !== undefined && (
-            <div style={{ marginTop: 8, fontSize: 11, color: "#22c55e" }}>
-              {cur.correctCount.toString()} agent{cur.correctCount !== 1n ? "s" : ""} answered correctly
-            </div>
-          )}
-        </div>
 
-        {/* Previous round result */}
-        <div style={{ border: "1px solid #1a1a1a", padding: "18px 20px", marginBottom: 24 }}>
-          <div style={{ fontSize: 10, color: "#555", letterSpacing: "0.1em", marginBottom: 10, display: "flex", justifyContent: "space-between" }}>
-            <span>PREVIOUS ROUND</span>
-            {prev?.roundId !== undefined && <span style={{ color: "#333" }}>#{prev.roundId.toString()}</span>}
+          {/* Header row */}
+          <div style={{ display: "grid", gridTemplateColumns: "90px 80px 1fr auto", gap: 12, marginBottom: 4 }}>
+            <div style={{ fontSize: 9, color: "#333", letterSpacing: "0.08em" }}>ROUND</div>
+            <div style={{ fontSize: 9, color: "#333", letterSpacing: "0.08em" }}>PHASE</div>
+            <div style={{ fontSize: 9, color: "#333", letterSpacing: "0.08em" }}>QUESTION</div>
+            <div style={{ fontSize: 9, color: "#333", letterSpacing: "0.08em", textAlign: "right" }}>ANSWER</div>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
-            <div>
-              <div style={{ fontSize: 10, color: "#444", marginBottom: 5, letterSpacing: "0.05em" }}>QUESTION</div>
-              <div style={{ fontSize: 13, color: "#888", lineHeight: 1.5 }}>{prevQuestion ?? prev?.questionUri ?? "—"}</div>
-            </div>
-            <div>
-              <div style={{ fontSize: 10, color: "#444", marginBottom: 5, letterSpacing: "0.05em" }}>ANSWER</div>
-              <div style={{ fontSize: 13, color: prev?.revealedAnswer ? "#22c55e" : "#333", fontWeight: prev?.revealedAnswer ? 600 : 400 }}>
-                {prev?.revealedAnswer || "—"}
-              </div>
-              {prev?.revealedAnswer && (
-                <div style={{ fontSize: 10, color: "#555", marginTop: 4 }}>
-                  {prev.correctCount?.toString() ?? "0"} agent{prev.correctCount !== 1n ? "s" : ""} answered correctly
-                </div>
-              )}
-            </div>
-          </div>
+
+          {epochOpen ? (
+            <>
+              <FlightRow
+                label="N (commit)"
+                phase={phaseN.phase}
+                roundId={roundN?.roundId?.toString()}
+                countdown={phaseN.countdown}
+                countdownColor={phaseN.countdownColor}
+                question={qN}
+                settled={roundN?.settled}
+                expired={roundN?.expired}
+                correctCount={roundN?.settled ? Number(roundN.correctCount) : undefined}
+                answer={roundN?.settled ? roundN.revealedAnswer : undefined}
+              />
+              <FlightRow
+                label="N-1 (reveal)"
+                phase={phaseN1.phase}
+                roundId={roundN1?.roundId?.toString()}
+                countdown={phaseN1.countdown}
+                countdownColor={phaseN1.countdownColor}
+                question={qN1}
+                settled={roundN1?.settled}
+                expired={roundN1?.expired}
+                correctCount={roundN1?.settled ? Number(roundN1.correctCount) : undefined}
+                answer={roundN1?.settled ? roundN1.revealedAnswer : undefined}
+              />
+              <FlightRow
+                label="N-2 (settle)"
+                phase={phaseN2.phase}
+                roundId={roundN2?.roundId?.toString()}
+                countdown={phaseN2.countdown}
+                countdownColor={phaseN2.countdownColor}
+                question={qN2}
+                settled={roundN2?.settled}
+                expired={roundN2?.expired}
+                correctCount={roundN2?.settled ? Number(roundN2.correctCount) : undefined}
+                answer={roundN2?.settled ? roundN2.revealedAnswer : undefined}
+              />
+            </>
+          ) : (
+            <div style={{ fontSize: 13, color: "#333", paddingTop: 8 }}>no epoch open</div>
+          )}
         </div>
 
         {/* Participate CTAs */}
