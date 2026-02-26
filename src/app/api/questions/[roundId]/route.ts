@@ -15,7 +15,7 @@ import { base } from 'viem/chains';
  */
 
 const RPC_URL        = `https://base-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY || 'yl0eEel9mhO_P_ozpzdtZ'}`;
-const CONTROLLER     = '0xd90C5266077254E607B0908be092aB9aCe70323a' as `0x${string}`;
+const CONTROLLER     = '0x4F59C57eB19BabBdEe5D5ED645FEB3EC2e37C7D2' as `0x${string}`;
 const PROXY          = '0x9B5FD0B02355E954F159F33D7886e4198ee777b9' as `0x${string}`;
 
 const CONTROLLER_ABI = [
