@@ -123,16 +123,17 @@ export function MineDashboard() {
   });
   const round1 = r1Data?.[0]?.result as any;
 
-  // Total credits (last 10 settled rounds)
-  const settledRoundIds = roundCount && roundCount > 0n
-    ? Array.from({ length: Math.min(Number(roundCount), 10) }, (_, i) => BigInt(Number(roundCount) - i)).filter(n => n > 0n)
+  // Total credits — sum correctCount across ALL rounds in current epoch (live accumulator)
+  // epoch.totalCredits is only written at epoch close, so we sum from contract mid-epoch
+  const allRoundIds = roundCount && roundCount > 0n
+    ? Array.from({ length: Number(roundCount) }, (_, i) => BigInt(i + 1))
     : [];
-  const { data: settledData } = useReadContracts({
-    contracts: settledRoundIds.map(id => ({ ...c, functionName: "getRound" as const, args: [id] })),
-    query: { enabled: settledRoundIds.length > 0, refetchInterval: 15_000 },
+  const { data: allRoundsData } = useReadContracts({
+    contracts: allRoundIds.map(id => ({ ...c, functionName: "getRound" as const, args: [id] })),
+    query: { enabled: allRoundIds.length > 0 && !!epochOpen, refetchInterval: 15_000 },
   });
-  const totalCorrectAnswers = settledData
-    ? (settledData as any[]).reduce((sum, d) => {
+  const totalCorrectAnswers = allRoundsData
+    ? (allRoundsData as any[]).reduce((sum, d) => {
         const r = d?.result as any;
         return sum + (r?.settled && r?.correctCount ? Number(r.correctCount) : 0);
       }, 0)
@@ -147,6 +148,7 @@ export function MineDashboard() {
   })();
   const epochTimeLeft = epochEndAt ? Math.max(0, epochEndAt - now) : 0;
 
+  // Use epoch.totalCredits if epoch is closed/finalised, else live sum from all rounds
   const totalCredits = epoch?.totalCredits !== undefined && epoch.totalCredits > 0n
     ? epoch.totalCredits.toString()
     : totalCorrectAnswers > 0 ? totalCorrectAnswers.toString() : "0";
@@ -253,7 +255,7 @@ export function MineDashboard() {
         {/* Stats row 1 */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 1, background: "#1a1a1a", marginBottom: 1 }}>
           <Stat label="epoch rewards"   value={rewardPool}     sub={rewardUsd ?? "$CUSTOS pool"} accent />
-          <Stat label="correct answers" value={totalCredits}   sub="across settled rounds" />
+          <Stat label="correct answers" value={totalCredits}   sub="this epoch · resets at close" />
           <Stat label="epoch ends in"   value={epochOpen && epochEndAt ? formatCountdown(epochTimeLeft) : "—"} sub={epochEndAt ? new Date(epochEndAt * 1000).toUTCString().replace(" GMT", " UTC") : "24h per epoch"} />
         </div>
 
