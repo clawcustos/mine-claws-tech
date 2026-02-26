@@ -54,7 +54,7 @@ export default function StakePage() {
           <span style={{ color: "#fff", fontWeight: 700, fontSize: 13, whiteSpace: "nowrap" }}>mine<span style={{ color: "#dc2626" }}>.claws.tech</span></span>
         </Link>
         <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", justifyContent: "flex-end" }}>
-          <div style={{ display: "flex", gap: 14, fontSize: 12, color: "#555" }}>
+          <div style={{ display: "flex", gap: 14, fontSize: 12, color: "#999" }}>
             {[["mine", "/mine"], ["stake", "/stake"], ["epochs", "/epochs"], ["docs", "/docs"]].map(([label, href]) => (
               <Link key={href} href={href} style={{ color: label === "stake" ? "#fff" : "#555", textDecoration: "none" }}>{label}</Link>
             ))}
@@ -69,9 +69,9 @@ export default function StakePage() {
       <div style={{ maxWidth: 760, margin: "0 auto", padding: "24px 16px 48px" }}>
 
         <div style={{ marginBottom: 28 }}>
-          <div style={{ fontSize: 10, color: "#555", letterSpacing: "0.12em", marginBottom: 8 }}>STAKING</div>
+          <div style={{ fontSize: 10, color: "#999", letterSpacing: "0.12em", marginBottom: 8 }}>STAKING</div>
           <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 8px" }}>stake $CUSTOS</h1>
-          <p style={{ color: "#444", fontSize: 13, margin: 0, lineHeight: 1.6 }}>
+          <p style={{ color: "#aaa", fontSize: 13, margin: 0, lineHeight: 1.6 }}>
             stake before epoch open to be included in the tier snapshot. no wallet connection needed here — use CLI or script.
           </p>
         </div>
@@ -84,7 +84,7 @@ export default function StakePage() {
             ["reward buffer", rewardBuf !== undefined && rewardBuf > 0n ? formatCustos(rewardBuf) + " $CUSTOS" : "—"],
           ].map(([label, value]) => (
             <div key={label} style={{ background: "#0a0a0a", padding: "14px 18px" }}>
-              <div style={{ fontSize: 10, color: "#555", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4 }}>{label}</div>
+              <div style={{ fontSize: 10, color: "#999", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4 }}>{label}</div>
               <div style={{ fontSize: 15, fontWeight: 700 }}>{value as string}</div>
             </div>
           ))}
@@ -92,11 +92,11 @@ export default function StakePage() {
 
         {/* Tier table */}
         <div style={{ border: "1px solid #1a1a1a", marginBottom: 32 }}>
-          <div style={{ padding: "12px 20px", borderBottom: "1px solid #1a1a1a", fontSize: 10, color: "#555", letterSpacing: "0.1em" }}>TIERS</div>
+          <div style={{ padding: "12px 20px", borderBottom: "1px solid #1a1a1a", fontSize: 10, color: "#999", letterSpacing: "0.1em" }}>TIERS</div>
           <div style={{ display: "grid", gridTemplateColumns: "auto 1fr auto auto", gap: "0", fontSize: 12 }}>
             {/* header */}
             {["tier", "min $CUSTOS", "credit multiplier", ""].map((h, i) => (
-              <div key={i} style={{ padding: "8px 20px", color: "#444", fontSize: 10, letterSpacing: "0.08em", borderBottom: "1px solid #111" }}>{h}</div>
+              <div key={i} style={{ padding: "8px 20px", color: "#aaa", fontSize: 10, letterSpacing: "0.08em", borderBottom: "1px solid #111" }}>{h}</div>
             ))}
             {/* rows */}
             {[
@@ -106,23 +106,23 @@ export default function StakePage() {
             ].map(([tier, amount, mult, col]) => (
               <>
                 <div style={{ padding: "10px 20px", color: "#fff", borderBottom: "1px solid #0d0d0d" }}>Tier {tier}</div>
-                <div style={{ padding: "10px 20px", color: "#888", fontFamily: "ui-monospace, monospace", borderBottom: "1px solid #0d0d0d" }}>{amount}</div>
+                <div style={{ padding: "10px 20px", color: "#bbb", fontFamily: "ui-monospace, monospace", borderBottom: "1px solid #0d0d0d" }}>{amount}</div>
                 <div style={{ padding: "10px 20px", color: col as string, fontWeight: 700, borderBottom: "1px solid #0d0d0d" }}>{mult}</div>
                 <div style={{ borderBottom: "1px solid #0d0d0d" }} />
               </>
             ))}
           </div>
-          <div style={{ padding: "10px 20px", fontSize: 11, color: "#444" }}>
+          <div style={{ padding: "10px 20px", fontSize: 11, color: "#aaa" }}>
             credits = your tier × correct answers this epoch. rewards ∝ credits / total credits.
           </div>
         </div>
 
         {/* CLI instructions */}
         <div style={{ marginBottom: 36 }}>
-          <div style={{ fontSize: 10, color: "#555", letterSpacing: "0.1em", marginBottom: 16 }}>HOW TO STAKE (CLI)</div>
+          <div style={{ fontSize: 10, color: "#999", letterSpacing: "0.1em", marginBottom: 16 }}>HOW TO STAKE (CLI)</div>
 
           <div style={{ marginBottom: 20 }}>
-            <div style={{ fontSize: 12, color: "#888", marginBottom: 8 }}>1. approve $CUSTOS to MineController</div>
+            <div style={{ fontSize: 12, color: "#bbb", marginBottom: 8 }}>1. approve $CUSTOS to MineController</div>
             <Code>{`cast send ${CONTRACTS.CUSTOS_TOKEN} \\
   "approve(address,uint256)" \\
   ${CONTRACTS.MINE_CONTROLLER} \\
@@ -131,7 +131,7 @@ export default function StakePage() {
           </div>
 
           <div style={{ marginBottom: 20 }}>
-            <div style={{ fontSize: 12, color: "#888", marginBottom: 8 }}>2. stake (choose amount)</div>
+            <div style={{ fontSize: 12, color: "#bbb", marginBottom: 8 }}>2. stake (choose amount)</div>
             <Code>{`# Tier 1: 25M $CUSTOS
 cast send ${CONTRACTS.MINE_CONTROLLER} \\
   "stake(uint256)" 25000000000000000000000000 \\
@@ -149,7 +149,7 @@ cast send ${CONTRACTS.MINE_CONTROLLER} \\
           </div>
 
           <div style={{ marginBottom: 20 }}>
-            <div style={{ fontSize: 12, color: "#888", marginBottom: 8 }}>3. check your position</div>
+            <div style={{ fontSize: 12, color: "#bbb", marginBottom: 8 }}>3. check your position</div>
             <Code>{`cast call ${CONTRACTS.MINE_CONTROLLER} \\
   "getStake(address)((uint256,bool,uint256,uint256))" \\
   $YOUR_WALLET \\
@@ -158,7 +158,7 @@ cast send ${CONTRACTS.MINE_CONTROLLER} \\
           </div>
 
           <div style={{ marginBottom: 20 }}>
-            <div style={{ fontSize: 12, color: "#888", marginBottom: 8 }}>4. queue unstake (tokens return at epoch close)</div>
+            <div style={{ fontSize: 12, color: "#bbb", marginBottom: 8 }}>4. queue unstake (tokens return at epoch close)</div>
             <Code>{`cast send ${CONTRACTS.MINE_CONTROLLER} \\
   "unstake()" \\
   --rpc-url https://mainnet.base.org --private-key $PRIVATE_KEY
@@ -174,7 +174,7 @@ cast send ${CONTRACTS.MINE_CONTROLLER} \\
         <div style={{ border: "1px solid #dc2626", padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div>
             <div style={{ fontSize: 10, color: "#dc2626", letterSpacing: "0.1em", marginBottom: 6 }}>MINER SKILL</div>
-            <div style={{ fontSize: 13, color: "#888" }}>automate the full mining loop — stake, commit, reveal, claim</div>
+            <div style={{ fontSize: 13, color: "#bbb" }}>automate the full mining loop — stake, commit, reveal, claim</div>
           </div>
           <a href={SKILL_URL} target="_blank" rel="noopener noreferrer"
             style={{ display: "inline-block", background: "#dc2626", color: "#fff", padding: "9px 18px", fontSize: 12, fontWeight: 700, textDecoration: "none", whiteSpace: "nowrap", marginLeft: 24 }}>

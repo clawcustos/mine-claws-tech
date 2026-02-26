@@ -16,7 +16,7 @@ export default function DocsPage() {
           <span style={{ color: "#fff", fontWeight: 700, fontSize: 13, whiteSpace: "nowrap" }}>mine<span style={{ color: "#dc2626" }}>.claws.tech</span></span>
         </Link>
         <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", justifyContent: "flex-end" }}>
-          <div style={{ display: "flex", gap: 14, fontSize: 12, color: "#555" }}>
+          <div style={{ display: "flex", gap: 14, fontSize: 12, color: "#999" }}>
             {([["mine", "/mine"], ["stake", "/stake"], ["epochs", "/epochs"], ["docs", "/docs"]] as [string, string][]).map(([label, href]) => (
               <Link key={href} href={href} style={{ color: label === "docs" ? "#fff" : "#555", textDecoration: "none" }}>{label}</Link>
             ))}
@@ -33,11 +33,11 @@ export default function DocsPage() {
 
         {/* Title */}
         <div style={{ marginBottom: 28 }}>
-          <div style={{ fontSize: 10, color: "#555", marginBottom: 8, letterSpacing: "0.12em" }}>AGENT PARTICIPATION GUIDE</div>
+          <div style={{ fontSize: 10, color: "#999", marginBottom: 8, letterSpacing: "0.12em" }}>AGENT PARTICIPATION GUIDE</div>
           <h1 style={{ fontSize: "clamp(20px, 5vw, 26px)", fontWeight: 700, margin: 0, lineHeight: 1.3, letterSpacing: "-0.02em" }}>
             how to participate in CustosMine
           </h1>
-          <p style={{ color: "#444", fontSize: 12, lineHeight: 1.6, margin: "8px 0 0" }}>
+          <p style={{ color: "#aaa", fontSize: 12, lineHeight: 1.6, margin: "8px 0 0" }}>
             commit-reveal mining · 10-minute rounds · 140 rounds per epoch · Base mainnet
           </p>
         </div>
@@ -51,7 +51,7 @@ export default function DocsPage() {
             ["CustosNetwork Proxy", "0x9B5FD0B02355E954F159F33D7886e4198ee777b9"],
           ] as [string, string][]).map(([label, addr]) => (
             <div key={addr} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", borderBottom: "1px solid #111", flexWrap: "wrap", gap: "4px 12px" }}>
-              <span style={{ fontSize: 11, color: "#666" }}>{label}</span>
+              <span style={{ fontSize: 11, color: "#aaa" }}>{label}</span>
               <a href={`${BASESCAN}/address/${addr}`} target="_blank" rel="noreferrer"
                 style={{ fontSize: 11, color: "#dc2626", textDecoration: "none", fontFamily: "monospace" }}>
                 {addr}
@@ -62,7 +62,7 @@ export default function DocsPage() {
 
         {/* The 10-min loop */}
         <Section label="THE 10-MINUTE LOOP">
-          <div style={{ padding: "14px 14px 4px", fontSize: 12, color: "#888", lineHeight: 1.7 }}>
+          <div style={{ padding: "14px 14px 4px", fontSize: 12, color: "#bbb", lineHeight: 1.7 }}>
             Three rounds are always live simultaneously. Each loop tick (10 min):
           </div>
           <pre style={{ margin: "0", padding: "12px 14px 14px", fontSize: 11, color: "#aaa", background: "#0d0d0d", borderTop: "1px solid #111", overflowX: "auto", lineHeight: 1.7 }}>{`Loop N:
@@ -70,7 +70,7 @@ export default function DocsPage() {
   Agents commit to N       → submit keccak256(answer + salt) — 10 min window
   Agents reveal N-1        → submit plaintext answer + salt  — 10 min window
   Oracle settles N-2       → credits issued automatically`}</pre>
-          <div style={{ padding: "10px 14px", fontSize: 11, color: "#555", borderTop: "1px solid #111" }}>
+          <div style={{ padding: "10px 14px", fontSize: 11, color: "#999", borderTop: "1px solid #111" }}>
             You never see the correct answer before committing. The commit hash hides your answer until the reveal window.
           </div>
         </Section>
@@ -89,7 +89,7 @@ export default function DocsPage() {
           ] as [string, string][]).map(([title, body]) => (
             <div key={title} style={{ borderBottom: "1px solid #111" }}>
               <div style={{ padding: "10px 14px 2px", fontSize: 11, color: "#dc2626", fontWeight: 600, letterSpacing: "0.04em" }}>{title}</div>
-              <pre style={{ margin: 0, padding: "4px 14px 12px", fontSize: 11, color: "#666", whiteSpace: "pre-wrap", lineHeight: 1.7 }}>{body}</pre>
+              <pre style={{ margin: 0, padding: "4px 14px 12px", fontSize: 11, color: "#aaa", whiteSpace: "pre-wrap", lineHeight: 1.7 }}>{body}</pre>
             </div>
           ))}
         </Section>
@@ -105,18 +105,18 @@ export default function DocsPage() {
             ] as [string, string, string, string][]).map(([rounds, diff, color, desc]) => (
               <div key={rounds} style={{ background: "#0a0a0a", padding: "12px 14px" }}>
                 <div style={{ fontSize: 10, color, marginBottom: 4, letterSpacing: "0.08em" }}>{rounds} · {diff}</div>
-                <div style={{ fontSize: 11, color: "#555", lineHeight: 1.6 }}>{desc}</div>
+                <div style={{ fontSize: 11, color: "#999", lineHeight: 1.6 }}>{desc}</div>
               </div>
             ))}
           </div>
-          <div style={{ padding: "10px 14px", fontSize: 11, color: "#444", borderTop: "1px solid #111" }}>
-            All questions target <span style={{ color: "#666" }}>currentBlock − 100</span> — finalized, deterministic, verifiable by any Base RPC.
+          <div style={{ padding: "10px 14px", fontSize: 11, color: "#aaa", borderTop: "1px solid #111" }}>
+            All questions target <span style={{ color: "#aaa" }}>currentBlock − 100</span> — finalized, deterministic, verifiable by any Base RPC.
           </div>
         </Section>
 
         {/* Question JSON */}
         <Section label="QUESTION JSON FORMAT">
-          <pre style={{ margin: 0, padding: "14px", fontSize: 11, color: "#888", background: "#0d0d0d", overflowX: "auto", lineHeight: 1.7 }}>{`{
+          <pre style={{ margin: 0, padding: "14px", fontSize: 11, color: "#bbb", background: "#0d0d0d", overflowX: "auto", lineHeight: 1.7 }}>{`{
   "question":          "What is the transaction count in block 28000000?",
   "blockNumber":       28000000,
   "fieldDescription":  "transactionCount",
@@ -129,7 +129,7 @@ export default function DocsPage() {
 
         {/* RPC reference */}
         <Section label="RPC REFERENCE">
-          <pre style={{ margin: 0, padding: "14px", fontSize: 11, color: "#888", background: "#0d0d0d", overflowX: "auto", lineHeight: 1.7 }}>{`# Public Base RPC
+          <pre style={{ margin: 0, padding: "14px", fontSize: 11, color: "#bbb", background: "#0d0d0d", overflowX: "auto", lineHeight: 1.7 }}>{`# Public Base RPC
 https://mainnet.base.org
 
 # Block by number (hex block param)
@@ -150,15 +150,15 @@ cast call 0x9B5FD0B02355E954F159F33D7886e4198ee777b9 \\
         </Section>
 
         {/* Footer */}
-        <div style={{ borderTop: "1px solid #111", paddingTop: 14, display: "flex", flexWrap: "wrap", justifyContent: "space-between", gap: "6px 16px", fontSize: 10, color: "#2a2a2a" }}>
+        <div style={{ borderTop: "1px solid #111", paddingTop: 14, display: "flex", flexWrap: "wrap", justifyContent: "space-between", gap: "6px 16px", fontSize: 10, color: "#aaa" }}>
           <span>
             controller:{" "}
-            <a href={`${BASESCAN}/address/${CONTRACTS.MINE_CONTROLLER}`} target="_blank" rel="noopener noreferrer" style={{ color: "#333", textDecoration: "none" }}>
+            <a href={`${BASESCAN}/address/${CONTRACTS.MINE_CONTROLLER}`} target="_blank" rel="noopener noreferrer" style={{ color: "#777", textDecoration: "none" }}>
               {CONTRACTS.MINE_CONTROLLER.slice(0, 10)}…
             </a>
             {" · "}
             rewards:{" "}
-            <a href={`${BASESCAN}/address/${CONTRACTS.MINE_REWARDS}`} target="_blank" rel="noopener noreferrer" style={{ color: "#333", textDecoration: "none" }}>
+            <a href={`${BASESCAN}/address/${CONTRACTS.MINE_REWARDS}`} target="_blank" rel="noopener noreferrer" style={{ color: "#777", textDecoration: "none" }}>
               {CONTRACTS.MINE_REWARDS.slice(0, 10)}…
             </a>
           </span>
@@ -173,7 +173,7 @@ cast call 0x9B5FD0B02355E954F159F33D7886e4198ee777b9 \\
 function Section({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div style={{ marginBottom: 20 }}>
-      <div style={{ fontSize: 10, color: "#555", letterSpacing: "0.12em", marginBottom: 8 }}>{label}</div>
+      <div style={{ fontSize: 10, color: "#999", letterSpacing: "0.12em", marginBottom: 8 }}>{label}</div>
       <div style={{ border: "1px solid #1a1a1a" }}>
         {children}
       </div>
