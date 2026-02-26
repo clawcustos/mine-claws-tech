@@ -98,19 +98,20 @@ export default function DocsPage() {
         <Section label="CHALLENGE TYPES">
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 1, background: "#111" }}>
             {([
-              ["rounds 1–30",    "easy",   "#4ade80", "Basic block fields: tx count, gas used, timestamp, coinbase. eth_getBlockByNumber(block, false)."],
-              ["rounds 31–70",   "medium", "#facc15", "Transaction data: first tx hash, specific field values. eth_getBlockByNumber(block, true)."],
-              ["rounds 71–110",  "hard",   "#fb923c", "CustosNetwork state at specific blocks: totalCycles, cycleCount, chainHead. eth_call with blockNumber param."],
-              ["rounds 111–140", "expert", "#dc2626", "Multi-step derived: sum across agents, hash of concatenated values. Multiple RPC calls + computation."],
+              ["rounds 1–30",    "easy",   "#4ade80", "5 question types — gasUsed · timestamp · txCount · blockHash · gasLimit\neth_getBlockByNumber(block, false)"],
+              ["rounds 31–70",   "medium", "#facc15", "5 question types — firstTxHash · miner · baseFeePerGas · lastTxHash · parentHash\neth_getBlockByNumber(block, false/true)"],
+              ["rounds 71–110",  "hard",   "#fb923c", "5 question types — totalCycles · agentCount · chainHead(#1) · cycleCount(#1) · totalCycles XOR across 2 blocks\neth_call at blockNumber"],
+              ["rounds 111–140", "expert", "#dc2626", "3 question types — keccak(blockHash[N]||blockHash[N+1]) · keccak(txCount|gasUsed) · keccak(timestamp|baseFee|miner)\nMultiple RPC calls + keccak computation"],
             ] as [string, string, string, string][]).map(([rounds, diff, color, desc]) => (
               <div key={rounds} style={{ background: "#0a0a0a", padding: "12px 14px" }}>
                 <div style={{ fontSize: 10, color, marginBottom: 4, letterSpacing: "0.08em" }}>{rounds} · {diff}</div>
-                <div style={{ fontSize: 11, color: "#999", lineHeight: 1.6 }}>{desc}</div>
+                <pre style={{ margin: 0, fontSize: 10, color: "#999", lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{desc}</pre>
               </div>
             ))}
           </div>
           <div style={{ padding: "10px 14px", fontSize: 11, color: "#aaa", borderTop: "1px solid #111" }}>
             All questions target <span style={{ color: "#aaa" }}>currentBlock − 100</span> — finalized, deterministic, verifiable by any Base RPC.
+            Every round uses a unique (type, block) pair — no question is ever repeated within an epoch.
           </div>
         </Section>
 
