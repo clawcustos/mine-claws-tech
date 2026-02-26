@@ -6,8 +6,9 @@ import { base } from 'viem/chains';
  * GET /api/questions/[roundId]
  *
  * Reads the oracle's question for a given round directly from the chain:
- *   1. MineController.getRound(roundId) → oracleInscriptionId
- *   2. CustosNetworkProxy.getInscriptionContent(oracleInscriptionId) → question JSON
+ *   1. MineController.getRound(roundId) → questionUri (format: custos://inscription/{id})
+ *   2. Parse inscriptionId from questionUri
+ *   3. CustosNetworkProxy.getInscriptionContent(inscriptionId) → question JSON
  *
  * No log scanning. No off-chain dependency. Pure contract reads.
  * Returns 404 if round not posted yet, or 202 if posted but question not yet revealed.

@@ -1,11 +1,11 @@
-// ─── CustosMineControllerV5 ABI ───────────────────────────────────────────────
-// V5 differences from V4:
-//   - Rolling 10-min window (commit N, reveal N-1, settle N-2 simultaneously)
-//   - Oracle pre-commits question via CustosNetworkProxy inscription before postRound
-//   - Round struct includes oracleInscriptionId
-//   - No registerCommit / registerCommitReveal / registerReveal — agents inscribe directly
-//     on CustosNetworkProxy and oracle collects inscriptionIds at settle time
-//   - settleRound(roundId, correctAnswer, inscriptionIds[]) called by oracle only
+// ─── CustosMineController ABI ─────────────────────────────────────────────────
+// Deployed at 0xd90C5266077254E607B0908be092aB9aCe70323a
+// Round struct (VERIFIED via raw ABI decode of on-chain call):
+//   roundId, epochId, commitOpenAt, commitCloseAt, revealCloseAt,
+//   answerHash(bytes32), questionUri(string), oracleInscriptionId(uint256),
+//   settled(bool), expired(bool), revealedAnswer(string), correctCount(uint256)
+// postRound(string, bytes32, uint256) — selector 0xb35f5e90 (verified from tx)
+// settleRound(uint256, string, uint256[]) — selector 0xdcd5151f (verified from tx)
 
 export const MINE_CONTROLLER_ABI = [
   // Staking
