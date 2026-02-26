@@ -1,7 +1,7 @@
 "use client";
 
 import { useReadContracts } from "wagmi";
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import Link from "next/link";
 import { CONTRACTS, BASESCAN, ROUNDS_PER_EPOCH } from "@/lib/constants";
 import { MINE_CONTROLLER_ABI } from "@/lib/abis";
@@ -165,30 +165,31 @@ function RecentRounds({
 }) {
   const [expanded, setExpanded] = useState(false);
 
-  if (!allRoundsData || !roundCount || roundCount < 3n) return null;
-
-  // Collect settled rounds, most recent first, skip the 3 in-flight
-  const settled: any[] = [];
-  const data = allRoundsData as any[];
-  for (let i = data.length - 1; i >= 0; i--) {
-    const r = data[i]?.result;
-    if (!r || !r.settled) continue;
-    // Skip rounds that are still in the 3-flight window
-    const rid = BigInt(r.roundId);
-    if (rid >= roundCount - 2n) continue;
-    settled.push(r);
-    if (settled.length >= 10) break;
-  }
-
-  if (settled.length === 0) return null;
+  // Derive settled list — always computed, never conditional
+  const settled = useMemo(() => {
+    if (!allRoundsData || !roundCount || roundCount < 3n) return [];
+    const out: any[] = [];
+    const data = allRoundsData as any[];
+    for (let i = data.length - 1; i >= 0; i--) {
+      const r = data[i]?.result;
+      if (!r || !r.settled) continue;
+      if (BigInt(r.roundId) >= roundCount - 2n) continue;
+      out.push(r);
+      if (out.length >= 10) break;
+    }
+    return out;
+  }, [allRoundsData, roundCount]);
 
   const shown = expanded ? settled : settled.slice(0, 3);
+  const shownIds = shown.map((r: any) => r.roundId.toString()).join(",");
 
-  // Pre-fetch questions for visible settled rounds
+  // Pre-fetch questions for shown rows — stable dep is the joined id string
   useEffect(() => {
-    shown.forEach(r => fetchQuestion(r.roundId.toString()));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [expanded, settled.length]);
+    shown.forEach((r: any) => fetchQuestion(r.roundId.toString()));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shownIds]);
+
+  if (settled.length === 0) return null;
 
   return (
     <div style={{ border: `1px solid ${C.border}`, marginBottom: 20 }}>
@@ -204,9 +205,9 @@ function RecentRounds({
       </button>
 
       {shown.map((r: any) => {
-        const rid  = r.roundId.toString();
-        const q    = questionCache[rid] ?? null;
-        const ans  = r.revealedAnswer ?? "—";
+        const rid = r.roundId.toString();
+        const q   = questionCache[rid] ?? null;
+        const ans = r.revealedAnswer ?? "—";
         const diff = r.difficulty ?? "";
         return (
           <div key={rid} style={{
@@ -372,8 +373,13 @@ export function MineDashboard() {
   const [questionCache, setQuestionCache] = useState<Record<string, string>>({});
   const fetchingRef = useRef<Set<string>>(new Set());
 
+  // Use a ref for the cache lookup inside fetchQuestion to avoid stale closure
+  // without making fetchQuestion depend on questionCache (which would cause loops)
+  const questionCacheRef = useRef<Record<string, string>>({});
+  useEffect(() => { questionCacheRef.current = questionCache; }, [questionCache]);
+
   const fetchQuestion = useCallback((roundId: string) => {
-    if (!roundId || questionCache[roundId] || fetchingRef.current.has(roundId)) return;
+    if (!roundId || questionCacheRef.current[roundId] || fetchingRef.current.has(roundId)) return;
     fetchingRef.current.add(roundId);
     let attempts = 0;
     const MAX = 12;
@@ -403,7 +409,9 @@ export function MineDashboard() {
         });
     }
     attempt();
-  }, [questionCache]);
+  // stable — intentionally no deps, uses refs for mutable state
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Fetch questions for all 3 flight rounds whenever their roundIds change
   useEffect(() => {
