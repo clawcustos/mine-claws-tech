@@ -80,6 +80,8 @@ export const MINE_CONTROLLER_ABI = [
       { name: "stakedIndex",      type: "uint256" },
     ]}],
   },
+  { type: "function", name: "isStaked", inputs: [{ name: "wallet", type: "address" }], outputs: [{ type: "bool" }], stateMutability: "view" },
+  { type: "function", name: "epochClaimed", inputs: [{ name: "epochId", type: "uint256" }, { name: "wallet", type: "address" }], outputs: [{ type: "bool" }], stateMutability: "view" },
   { type: "function", name: "getClaimable",    inputs: [{ name: "wallet", type: "address" }, { name: "epochId", type: "uint256" }], outputs: [{ type: "uint256" }], stateMutability: "view" },
   { type: "function", name: "getTierSnapshot", inputs: [{ name: "wallet", type: "address" }, { name: "epochId", type: "uint256" }], outputs: [{ type: "uint256" }], stateMutability: "view" },
   { type: "function", name: "getCredits",      inputs: [{ name: "wallet", type: "address" }, { name: "epochId", type: "uint256" }], outputs: [{ type: "uint256" }], stateMutability: "view" },
@@ -130,6 +132,11 @@ export const CUSTOS_PROXY_ABI = [
     outputs: [],
     stateMutability: "nonpayable",
   },
+
+  { type: "function", name: "getChainHeadByWallet", inputs: [{ name: "wallet", type: "address" }], outputs: [{ type: "bytes32" }], stateMutability: "view" },
+  { type: "function", name: "inscriptionAgent", inputs: [{ name: "inscriptionId", type: "uint256" }], outputs: [{ type: "address" }], stateMutability: "view" },
+  { type: "function", name: "getInscriptionContent", inputs: [{ name: "inscriptionId", type: "uint256" }], outputs: [{ name: "revealed", type: "bool" }, { name: "content", type: "string" }, { name: "contentHash", type: "bytes32" }], stateMutability: "view" },
+  { type: "function", name: "getInscriptionWithReveal", inputs: [{ name: "inscriptionId", type: "uint256" }], outputs: [{ name: "revealed", type: "bool" }, { name: "content", type: "string" }, { name: "contentHash", type: "bytes32" }], stateMutability: "view" },
   // View
   { type: "function", name: "inscriptionContentHash",  inputs: [{ name: "inscriptionId", type: "uint256" }], outputs: [{ type: "bytes32" }], stateMutability: "view" },
   { type: "function", name: "inscriptionRevealTime",   inputs: [{ name: "inscriptionId", type: "uint256" }], outputs: [{ type: "uint256" }], stateMutability: "view" },
