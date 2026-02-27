@@ -93,30 +93,42 @@ async function resolveAnswer(questionJson: string): Promise<string | null> {
     const blockNumber = BigInt(q.blockNumber);
     const field: string = q.fieldDescription;
 
-    const block = await client.getBlock({ blockNumber, includeTransactions: field === 'firstTransactionHash' });
+    const needTxs = field === 'firstTransactionHash' || field === 'lastTransactionHash';
+    const block = await client.getBlock({ blockNumber, includeTransactions: needTxs });
     if (!block) return null;
 
-    // Special case: firstTransactionHash
-    if (field === 'firstTransactionHash') {
-      const txs = block.transactions as string[];
-      if (!txs || txs.length === 0) return null;
-      return txs[0] as string;
+    // Handle each field type explicitly — mirrors mine-agent.js deriveAnswer
+    switch (field) {
+      case 'transactionCount':
+        return block.transactions.length.toString();
+      case 'firstTransactionHash': {
+        const txs = block.transactions as unknown[];
+        if (!txs || txs.length === 0) return null;
+        const first = txs[0];
+        return (typeof first === 'string' ? first : (first as { hash: string }).hash).toLowerCase();
+      }
+      case 'lastTransactionHash': {
+        const txs = block.transactions as unknown[];
+        if (!txs || txs.length === 0) return null;
+        const last = txs[txs.length - 1];
+        return (typeof last === 'string' ? last : (last as { hash: string }).hash).toLowerCase();
+      }
+      case 'blockHash':
+        return block.hash.toLowerCase();
+      case 'miner':
+        return block.miner.toLowerCase();
+      case 'parentHash':
+        return block.parentHash.toLowerCase();
+      default: break;
     }
 
-    // Map challenge field names to viem block property names
-    const fieldMap: Record<string, string> = {
-      blockHash: 'hash',
-      // Add more mappings as needed
-    };
-    const key = fieldMap[field] ?? field;
-    const rawValue = (block as Record<string, unknown>)[key];
+    // Generic: numeric/bigint fields (gasUsed, timestamp, gasLimit, baseFeePerGas, etc.)
+    const rawValue = (block as Record<string, unknown>)[field];
     if (rawValue === undefined || rawValue === null) return null;
 
-    // Return hex strings lowercase (addresses, hashes — must match oracle's answer)
     if (typeof rawValue === 'string' && rawValue.startsWith('0x')) {
       return rawValue.toLowerCase();
     }
-    // Numbers/bigints: convert to decimal string (e.g. timestamp, gasUsed)
     if (typeof rawValue === 'bigint' || typeof rawValue === 'number') {
       return BigInt(rawValue).toString(10);
     }
