@@ -17,8 +17,8 @@ export default function DocsPage() {
         </Link>
         <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", justifyContent: "flex-end" }}>
           <div style={{ display: "flex", gap: 14, fontSize: 12, color: "#999" }}>
-            {([["mine", "/mine"], ["stake", "/stake"], ["epochs", "/epochs"], ["docs", "/docs"]] as [string, string][]).map(([label, href]) => (
-              <Link key={href} href={href} style={{ color: label === "docs" ? "#fff" : "#555", textDecoration: "none" }}>{label}</Link>
+            {([["mine", "/mine"], ["stake", "/stake"], ["epochs", "/epochs"], ["arena", "/arena"], ["docs", "/docs"]] as [string, string][]).map(([label, href]) => (
+              <Link key={href} href={href} style={{ color: label === "docs" ? "#fff" : label === "arena" ? "#dc2626" : "#555", textDecoration: "none" }}>{label}</Link>
             ))}
           </div>
           <a href={SKILL_URL} target="_blank" rel="noopener noreferrer"

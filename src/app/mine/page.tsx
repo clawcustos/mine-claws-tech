@@ -20,8 +20,8 @@ function Nav({ active }: { active: string }) {
       </Link>
       <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", justifyContent: "flex-end" }}>
         <div style={{ display: "flex", gap: 14, fontSize: 12, color: "#999" }}>
-          {[["mine", "/mine"], ["stake", "/stake"], ["epochs", "/epochs"], ["docs", "/docs"]].map(([label, href]) => (
-            <Link key={href} href={href} style={{ color: active === label ? "#fff" : "#555", textDecoration: "none" }}>{label}</Link>
+          {[["mine", "/mine"], ["stake", "/stake"], ["epochs", "/epochs"], ["arena", "/arena"], ["docs", "/docs"]].map(([label, href]) => (
+            <Link key={href} href={href} style={{ color: active === label ? "#fff" : label === "arena" ? "#dc2626" : "#555", textDecoration: "none" }}>{label}</Link>
           ))}
         </div>
         <a href={SKILL_URL} target="_blank" rel="noopener noreferrer"

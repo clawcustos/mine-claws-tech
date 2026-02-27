@@ -26,6 +26,10 @@ export function useRoundInscriptions(roundId: string | undefined) {
   const [error, setError] = useState<string | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const prevRoundId = useRef<string | undefined>(undefined);
+  const dataRef = useRef<RoundInscriptions | null>(null);
+
+  // Keep ref in sync so interval callback sees current data
+  dataRef.current = data;
 
   const fetchData = useCallback(async (id: string) => {
     try {
@@ -68,8 +72,9 @@ export function useRoundInscriptions(roundId: string | undefined) {
 
     // Poll every 4s for active rounds (DB-backed API is fast enough)
     intervalRef.current = setInterval(() => {
-      // Don't poll settled/expired rounds
-      if (data?.phase === "settled" || data?.phase === "expired") return;
+      // Don't poll settled/expired rounds — read from ref to avoid stale closure
+      const phase = dataRef.current?.phase;
+      if (phase === "settled" || phase === "expired") return;
       fetchData(roundId);
     }, 4_000);
 

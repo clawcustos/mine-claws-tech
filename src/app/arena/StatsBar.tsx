@@ -45,7 +45,7 @@ export function StatsBar({
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/logo.png" alt="Custos" style={{ width: 18, height: 18, borderRadius: 2 }} />
           <span style={{ color: "#fff", fontWeight: 700, fontSize: 11 }}>
-            arena<span style={{ color: "#dc2626" }}>.claws.tech</span>
+            mine<span style={{ color: "#dc2626" }}>.claws.tech</span>
           </span>
         </Link>
       </div>

@@ -32,8 +32,8 @@ function Nav({ active }: { active: string }) {
       </Link>
       <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", justifyContent: "flex-end" }}>
         <div style={{ display: "flex", gap: 14, fontSize: 12 }}>
-          {(["mine", "stake", "epochs", "docs"] as const).map(p => (
-            <Link key={p} href={`/${p}`} style={{ color: p === active ? "#fff" : "#555", textDecoration: "none" }}>{p}</Link>
+          {(["mine", "stake", "epochs", "arena", "docs"] as const).map(p => (
+            <Link key={p} href={`/${p}`} style={{ color: p === active ? "#fff" : p === "arena" ? "#dc2626" : "#555", textDecoration: "none" }}>{p}</Link>
           ))}
         </div>
         <a href={SKILL_URL} target="_blank" rel="noopener noreferrer"
