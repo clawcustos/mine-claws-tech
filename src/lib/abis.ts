@@ -1,5 +1,5 @@
 // ─── CustosMineController ABI ─────────────────────────────────────────────────
-// Deployed at 0xe818445e8a04fec223b0e8b2f47139c42d157099
+// Deployed at 0x42ca6E0986857d24BBE863Ee409612A639EEf96f
 // Round struct (VERIFIED via raw ABI decode of on-chain call):
 //   roundId, epochId, commitOpenAt, commitCloseAt, revealCloseAt,
 //   answerHash(bytes32), questionUri(string), oracleInscriptionId(uint256),

@@ -28,6 +28,8 @@ import { MINE_CONTROLLER_ABI, CUSTOS_PROXY_ABI } from '@/lib/abis';
 
 
 export const dynamic = 'force-dynamic';
+export const fetchCache = 'force-no-store';
+export const revalidate = 0;
 
 const RPC_URL = process.env.BASE_RPC_URL || DEFAULT_RPC_URL;
 
@@ -166,10 +168,29 @@ async function handler(req: NextRequest) {
       );
     }
 
-    // 1. Fetch round
-    const r: RoundResult = roundIdParam
-      ? await rc({ address: CONTRACTS.MINE_CONTROLLER, abi: MINE_CONTROLLER_ABI, functionName: 'getRound',        args: [BigInt(roundIdParam)] })
-      : await rc({ address: CONTRACTS.MINE_CONTROLLER, abi: MINE_CONTROLLER_ABI, functionName: 'getCurrentRound', args: [] });
+    // 1. Fetch round — find the active one in reveal window
+    let r: RoundResult;
+    if (roundIdParam) {
+      r = await rc({ address: CONTRACTS.MINE_CONTROLLER, abi: MINE_CONTROLLER_ABI, functionName: 'getRound', args: [BigInt(roundIdParam)] });
+    } else {
+      const roundCount = await rc({ address: CONTRACTS.MINE_CONTROLLER, abi: MINE_CONTROLLER_ABI, functionName: 'roundCount', args: [] }) as bigint;
+      const now = Math.floor(Date.now() / 1000);
+      let found: RoundResult | null = null;
+      for (let i = roundCount; i > BigInt(0) && i > roundCount - BigInt(5); i--) {
+        const candidate = await rc({ address: CONTRACTS.MINE_CONTROLLER, abi: MINE_CONTROLLER_ABI, functionName: 'getRound', args: [i] }) as RoundResult;
+        const cInReveal = now >= Number(candidate.commitCloseAt) && now < Number(candidate.revealCloseAt);
+        if (cInReveal) { found = candidate; break; }
+      }
+      if (!found) {
+        return NextResponse.json({
+          roundId: roundCount.toString(), wallet,
+          windows: { inReveal: false, revealSecsLeft: 0, settled: false, expired: false },
+          revealCalldata: null, inscriptionId: null,
+          bankrInstruction: 'No round in reveal window. All settled/expired or still in commit.',
+        });
+      }
+      r = found;
+    }
 
     const now          = Math.floor(Date.now() / 1000);
     const inReveal     = now >= Number(r.commitCloseAt) && now < Number(r.revealCloseAt);

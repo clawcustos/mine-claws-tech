@@ -34,6 +34,8 @@ import { MINE_CONTROLLER_ABI, CUSTOS_PROXY_ABI } from '@/lib/abis';
 
 
 export const dynamic = 'force-dynamic';
+export const fetchCache = 'force-no-store';
+export const revalidate = 0;
 
 const RPC_URL = process.env.BASE_RPC_URL || DEFAULT_RPC_URL;
 
@@ -101,12 +103,18 @@ async function resolveAnswer(questionJson: string): Promise<string | null> {
       return txs[0] as string;
     }
 
-    const rawValue = (block as Record<string, unknown>)[field];
+    // Map challenge field names to viem block property names
+    const fieldMap: Record<string, string> = {
+      blockHash: 'hash',
+      // Add more mappings as needed
+    };
+    const key = fieldMap[field] ?? field;
+    const rawValue = (block as Record<string, unknown>)[key];
     if (rawValue === undefined || rawValue === null) return null;
 
-    // Return hex strings as-is (addresses, hashes — do NOT pad; must match oracle's answer)
+    // Return hex strings lowercase (addresses, hashes — must match oracle's answer)
     if (typeof rawValue === 'string' && rawValue.startsWith('0x')) {
-      return rawValue;
+      return rawValue.toLowerCase();
     }
     // Numbers/bigints: convert to decimal string (e.g. timestamp, gasUsed)
     if (typeof rawValue === 'bigint' || typeof rawValue === 'number') {
@@ -192,10 +200,31 @@ async function handler(req: NextRequest) {
       );
     }
 
-    // 1. Fetch round
-    const r: RoundResult = roundIdParam
-      ? await rc({ address: CONTRACTS.MINE_CONTROLLER, abi: MINE_CONTROLLER_ABI, functionName: 'getRound',        args: [BigInt(roundIdParam)] })
-      : await rc({ address: CONTRACTS.MINE_CONTROLLER, abi: MINE_CONTROLLER_ABI, functionName: 'getCurrentRound', args: [] });
+    // 1. Fetch round — find the active one (in commit or reveal window)
+    let r: RoundResult;
+    if (roundIdParam) {
+      r = await rc({ address: CONTRACTS.MINE_CONTROLLER, abi: MINE_CONTROLLER_ABI, functionName: 'getRound', args: [BigInt(roundIdParam)] });
+    } else {
+      // Walk backwards from roundCount to find a round in commit or reveal window
+      const roundCount = await rc({ address: CONTRACTS.MINE_CONTROLLER, abi: MINE_CONTROLLER_ABI, functionName: 'roundCount', args: [] }) as bigint;
+      const now = Math.floor(Date.now() / 1000);
+      let found: RoundResult | null = null;
+      for (let i = roundCount; i > BigInt(0) && i > roundCount - BigInt(5); i--) {
+        const candidate = await rc({ address: CONTRACTS.MINE_CONTROLLER, abi: MINE_CONTROLLER_ABI, functionName: 'getRound', args: [i] }) as RoundResult;
+        const cInCommit = now >= Number(candidate.commitOpenAt) && now < Number(candidate.commitCloseAt);
+        const cInReveal = now >= Number(candidate.commitCloseAt) && now < Number(candidate.revealCloseAt);
+        if (cInCommit || cInReveal) { found = candidate; break; }
+      }
+      if (!found) {
+        return NextResponse.json({
+          roundId: roundCount.toString(), wallet,
+          windows: { inCommit: false, inReveal: false, commitSecsLeft: 0, revealSecsLeft: 0, settled: false, expired: false },
+          commitCalldata: null, revealCalldata: null, commitInscriptionId: null,
+          bankrInstruction: `No active round. Latest is ${roundCount}. All settled/expired. Next round will be posted by oracle.`,
+        });
+      }
+      r = found;
+    }
 
     const now           = Math.floor(Date.now() / 1000);
     const inCommit      = now >= Number(r.commitOpenAt)  && now < Number(r.commitCloseAt);
@@ -203,20 +232,32 @@ async function handler(req: NextRequest) {
     const commitSecsLeft = Number(r.commitCloseAt) - now;
     const revealSecsLeft = Number(r.revealCloseAt) - now;
 
-    // 2. Fetch question from oracle inscription
-    // getInscriptionContent returns [revealed, content, contentHash] — available once oracle reveals
+    // 2. Parse question from questionUri
+    // New format: custos://mine/q/{round}/{fieldDescription}/{blockNumber}
+    // Old format: custos://inscription/{id} — falls back to reading inscription content
     let questionJson: string | null = null;
     let question: Record<string, unknown> | null = null;
-    try {
-      const insResult = await rc({ address: CONTRACTS.CUSTOS_PROXY, abi: CUSTOS_PROXY_ABI, functionName: 'getInscriptionContent', args: [r.oracleInscriptionId] });
-      // viem returns multi-output as array or named object
-      const revealed = Array.isArray(insResult) ? insResult[0] : insResult.revealed;
-      const content  = Array.isArray(insResult) ? insResult[1] : insResult.content;
-      if (revealed && content) {
-        questionJson = content as string;
-        question     = JSON.parse(content as string);
-      }
-    } catch { /* inscription not yet revealed */ }
+    const uriMatch = r.questionUri.match(/custos:\/\/mine\/q\/(\d+)\/([^\/]+)\/(\d+)/);
+    if (uriMatch) {
+      question = {
+        roundNumber: parseInt(uriMatch[1]),
+        fieldDescription: uriMatch[2],
+        blockNumber: parseInt(uriMatch[3]),
+        question: `What is the ${uriMatch[2]} of block ${uriMatch[3]}?`,
+      };
+      questionJson = JSON.stringify(question);
+    } else {
+      // Fallback: old inscription-based format
+      try {
+        const insResult = await rc({ address: CONTRACTS.CUSTOS_PROXY, abi: CUSTOS_PROXY_ABI, functionName: 'getInscriptionContent', args: [r.oracleInscriptionId] });
+        const revealed = Array.isArray(insResult) ? insResult[0] : insResult.revealed;
+        const content  = Array.isArray(insResult) ? insResult[1] : insResult.content;
+        if (revealed && content) {
+          questionJson = content as string;
+          question     = JSON.parse(content as string);
+        }
+      } catch { /* not available */ }
+    }
 
     // 3. Resolve answer from chain
     const answer = questionJson ? await resolveAnswer(questionJson) : null;
