@@ -53,3 +53,23 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: #b91c1c;
 }
+
+/* Arena overlay styles */
+.arena-stats,
+.arena-inspect,
+.arena-timeline {
+  -webkit-font-smoothing: antialiased;
+}
+
+.arena-timeline::-webkit-scrollbar {
+  height: 4px;
+}
+
+.arena-timeline::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.arena-timeline::-webkit-scrollbar-thumb {
+  background: #333;
+  border-radius: 2px;
+}

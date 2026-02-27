@@ -58,8 +58,8 @@ export async function GET(
   const { roundId } = await params;
   const id = parseInt(roundId, 10);
 
-  if (isNaN(id) || id < 1 || id > 140) {
-    return NextResponse.json({ error: 'Invalid roundId — must be 1–140' }, { status: 400 });
+  if (isNaN(id) || id < 1) {
+    return NextResponse.json({ error: 'Invalid roundId' }, { status: 400 });
   }
 
   try {

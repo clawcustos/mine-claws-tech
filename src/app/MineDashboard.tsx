@@ -446,6 +446,7 @@ export function MineDashboard() {
             <Link href="/mine"   style={{ color: C.nav, textDecoration: "none" }}>mine</Link>
             <Link href="/stake"  style={{ color: C.nav, textDecoration: "none" }}>stake</Link>
             <Link href="/epochs" style={{ color: C.nav, textDecoration: "none" }}>epochs</Link>
+            <Link href="/arena"  style={{ color: "#dc2626", textDecoration: "none" }}>arena</Link>
             <Link href="/docs"   style={{ color: C.nav, textDecoration: "none" }}>docs</Link>
           </div>
           <a href={SKILL_URL} target="_blank" rel="noopener noreferrer"
