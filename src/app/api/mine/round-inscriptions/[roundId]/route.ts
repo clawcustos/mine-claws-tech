@@ -38,12 +38,18 @@ interface CacheEntry {
 }
 
 const cache = new Map<number, CacheEntry>();
-const CACHE_TTL_SETTLED = 300_000; // 5 min — settled data doesn't change
-const CACHE_TTL_ACTIVE = 4_000;   // 4s — active rounds refresh often
+const CACHE_TTL_COMPLETE = 300_000; // 5 min — settled + corrects populated
+const CACHE_TTL_SETTLED  = 8_000;   // 8s — settled but corrects not yet computed (reveals still propagating)
+const CACHE_TTL_ACTIVE   = 4_000;   // 4s — active rounds refresh often
 
 function isFresh(entry: CacheEntry): boolean {
   const age = Date.now() - entry.ts;
-  if (entry.settled || entry.expired) return age < CACHE_TTL_SETTLED;
+  if (entry.settled || entry.expired) {
+    // Only long-cache if we have revealed answers to compute correct flags from.
+    // A round cached right before settlement has revealedAnswer=null — keep refreshing.
+    const hasReveals = entry.revealedAnswer && entry.agents.some((a) => a.revealed && a.content);
+    return age < (hasReveals ? CACHE_TTL_COMPLETE : CACHE_TTL_SETTLED);
+  }
   return age < CACHE_TTL_ACTIVE;
 }
 
@@ -90,8 +96,10 @@ async function fetchFromChain(roundId: number): Promise<CacheEntry | null> {
   // 3. Scan for agent inscriptions via multicall
   const agents: CachedAgent[] = [];
   if (oracleId > 0) {
+    // Agents inscribe after the oracle; with 20+ miners + interleaved rounds,
+    // IDs can spread 40-50+ beyond the oracle inscription.
     const start = Math.max(1, oracleId - 2);
-    const end = oracleId + 10;
+    const end = oracleId + 60;
     const candidateIds = Array.from(
       { length: end - start + 1 },
       (_, i) => start + i
