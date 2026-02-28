@@ -38,8 +38,8 @@ export function InspectPanel({ agent, roundId, phase, onClose }: InspectPanelPro
   };
 
   const statusText = (() => {
-    if (phase === "settled" && agent.correct === true) return "CORRECT";
-    if (phase === "settled" && agent.correct === false) return "INCORRECT";
+    if (phase === "settled" && agent.correct === true) return "SUCCESS";
+    if (phase === "settled" && agent.correct === false) return "FAIL";
     if (agent.revealed) return "REVEALED";
     return "MINED";
   })();
