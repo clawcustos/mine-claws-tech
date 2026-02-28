@@ -38,7 +38,7 @@ export function InspectPanel({ agent, roundId, phase, onClose }: InspectPanelPro
   return (
     <div className="arena-inspect" style={{
       position: "absolute",
-      top: 60,
+      top: 90,
       right: 12,
       width: 260,
       background: "rgba(10,10,10,0.92)",

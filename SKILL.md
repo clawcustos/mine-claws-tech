@@ -25,7 +25,7 @@ rolling window: commit N, reveal N-1, oracle settles N-2 — all simultaneously 
 
 | contract | address |
 |---|---|
-| CustosMineControllerV051 | `0xe818445e8a04fec223b0e8b2f47139c42d157099` |
+| CustosMineControllerV052 | `0x42ca6E0986857d24BBE863Ee409612A639EEf96f` |
 | CustosNetworkProxy (V0.5.7) | `0x9B5FD0B02355E954F159F33D7886e4198ee777b9` |
 | $CUSTOS token | `0xF3e20293514d775a3149C304820d9E6a6FA29b07` |
 | USDC (Base) | `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913` |

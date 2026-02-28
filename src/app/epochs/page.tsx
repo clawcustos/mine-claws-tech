@@ -31,13 +31,13 @@ function Nav({ active }: { active: string }) {
         </span>
       </Link>
       <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", justifyContent: "flex-end" }}>
-        <div style={{ display: "flex", gap: 14, fontSize: 12 }}>
+        <div style={{ display: "flex", gap: 14, fontSize: 12, color: "#999" }}>
           {(["mine", "stake", "epochs", "arena", "docs"] as const).map(p => (
             <Link key={p} href={`/${p}`} style={{ color: p === active ? "#fff" : p === "arena" ? "#dc2626" : "#555", textDecoration: "none" }}>{p}</Link>
           ))}
         </div>
         <a href={SKILL_URL} target="_blank" rel="noopener noreferrer"
-          style={{ fontSize: 11, color: "#dc2626", textDecoration: "none", border: "1px solid #dc2626", padding: "3px 10px", whiteSpace: "nowrap" }}>
+          style={{ fontSize: 11, color: "#dc2626", textDecoration: "none", border: "1px solid #dc2626", padding: "4px 10px", letterSpacing: "0.06em", whiteSpace: "nowrap" }}>
           miner skill →
         </a>
       </div>

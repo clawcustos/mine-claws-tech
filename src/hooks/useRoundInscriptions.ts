@@ -70,13 +70,18 @@ export function useRoundInscriptions(roundId: string | undefined) {
     setLoading(true);
     fetchData(roundId).finally(() => setLoading(false));
 
-    // Poll every 4s for active rounds (DB-backed API is fast enough)
+    // Poll every 2s for near-instant updates
     intervalRef.current = setInterval(() => {
-      // Don't poll settled/expired rounds — read from ref to avoid stale closure
-      const phase = dataRef.current?.phase;
-      if (phase === "settled" || phase === "expired") return;
+      const d = dataRef.current;
+      const phase = d?.phase;
+      // Keep polling settled rounds until correct flags are populated,
+      // otherwise we stop with stale correct=null for all agents
+      if (phase === "settled" || phase === "expired") {
+        const hasCorrects = d?.agents?.some((a) => a.correct !== null);
+        if (hasCorrects) return; // truly done — stop polling
+      }
       fetchData(roundId);
-    }, 4_000);
+    }, 2_000);
 
     return () => {
       if (intervalRef.current) {

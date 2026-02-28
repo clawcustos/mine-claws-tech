@@ -8,6 +8,7 @@ import { MINE_CONTROLLER_ABI } from "@/lib/abis";
 import { useCustosPrice, formatCustosUsd } from "@/hooks/useCustosPrice";
 import { formatCustos } from "@/lib/utils";
 import { useRoundInscriptions } from "@/hooks/useRoundInscriptions";
+import { EffectComposer, Bloom, Vignette } from "@react-three/postprocessing";
 import { Scene } from "./Scene";
 import { StatsBar } from "./StatsBar";
 import { InspectPanel } from "./InspectPanel";
@@ -66,7 +67,7 @@ export default function ArenaPage() {
 
   const { data: flightData } = useReadContracts({
     contracts: flight3Contracts,
-    query: { enabled: flight3Contracts.length > 0 && !!epochOpen, refetchInterval: 12_000 },
+    query: { enabled: flight3Contracts.length > 0, refetchInterval: 12_000 },
   });
 
   let idx = 0;
@@ -148,7 +149,8 @@ export default function ArenaPage() {
   const phaseN1 = getPhase(roundN1);
   const phaseN2 = getPhase(roundN2);
 
-  const flightRounds: FlightRound[] = useMemo(() => {
+  // Build live flight rounds from on-chain data
+  const liveFlightRounds: FlightRound[] = useMemo(() => {
     const rounds: FlightRound[] = [];
     if (roundN) {
       rounds.push({
@@ -187,6 +189,9 @@ export default function ArenaPage() {
     questionCache, insN.data, insN1.data, insN2.data,
   ]);
 
+  // Always show live on-chain rounds (no fallback to old DB rounds)
+  const flightRounds: FlightRound[] = liveFlightRounds;
+
   // Epoch timing
   const epochEndAt: number | undefined = (() => {
     if (epoch?.endAt && Number(epoch.endAt) > 1_700_000_000) return Number(epoch.endAt);
@@ -218,18 +223,22 @@ export default function ArenaPage() {
   }, []);
 
   return (
-    <div style={{ width: "100vw", height: "100vh", position: "relative", background: "#0a0a0a", overflow: "hidden" }}>
+    <div style={{ width: "100vw", height: "100vh", position: "relative", background: "#050302", overflow: "hidden" }}>
       <Canvas
-        camera={{ position: [0, 7, 16], fov: 50 }}
+        camera={{ position: [0, 6, 14], fov: 45 }}
         style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%" }}
         gl={{ antialias: true, alpha: false }}
-        onCreated={({ gl }) => { gl.setClearColor("#050505"); }}
+        onCreated={({ gl }) => { gl.setClearColor("#050302"); }}
       >
         <Scene
           flightRounds={flightRounds}
           onSelectAgent={handleSelectAgent}
           selectedAgentWallet={selectedAgent?.wallet ?? null}
         />
+        <EffectComposer>
+          <Bloom luminanceThreshold={0.15} intensity={1.2} mipmapBlur />
+          <Vignette offset={0.3} darkness={0.8} />
+        </EffectComposer>
       </Canvas>
 
       <StatsBar

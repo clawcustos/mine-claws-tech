@@ -19,7 +19,7 @@ const RPC_URL = `https://base-mainnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}`;
 
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-const CONTROLLER = "0xe818445e8a04fec223b0e8b2f47139c42d157099" as const;
+const CONTROLLER = "0x42ca6E0986857d24BBE863Ee409612A639EEf96f" as const;
 const PROXY = "0x9B5FD0B02355E954F159F33D7886e4198ee777b9" as const;
 const ORACLE_WALLET = "0x19eE9D68cA11Fcf3Db49146b88cAE6E746E67F96".toLowerCase();
 
