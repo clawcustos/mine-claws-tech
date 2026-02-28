@@ -68,6 +68,11 @@ body {
   }
 }
 
+/* Arena full-height — dvh for mobile browser chrome, vh fallback */
+@supports not (height: 100dvh) {
+  .arena-root { height: 100vh !important; }
+}
+
 /* Arena overlay styles */
 .arena-stats,
 .arena-inspect,

@@ -248,7 +248,7 @@ export default function ArenaPage() {
   }, []);
 
   return (
-    <div style={{ width: "100vw", height: "100vh", position: "relative", background: "#050302", overflow: "hidden" }}>
+    <div className="arena-root" style={{ width: "100vw", height: "100dvh", position: "relative", background: "#050302", overflow: "hidden" }}>
       <Canvas
         camera={{ position: [0, 6, 14], fov: 45 }}
         style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%" }}
