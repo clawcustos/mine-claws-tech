@@ -41,9 +41,9 @@ export function StatsBar({
         .arena-stats-strip { display: flex; gap: 20px; padding: 6px 16px 7px; }
         .arena-stat-secondary { display: flex; }
         @media (max-width: 640px) {
-          .arena-nav-links { gap: 10px; font-size: 11px; }
+          .arena-nav-links { gap: 8px; font-size: 11px; }
           .arena-skill-btn { display: none; }
-          .arena-stats-strip { gap: 12px; padding: 5px 10px 6px; }
+          .arena-stats-strip { gap: 10px; padding: 4px 10px 5px; }
           .arena-stat-secondary { display: none; }
         }
       `}</style>

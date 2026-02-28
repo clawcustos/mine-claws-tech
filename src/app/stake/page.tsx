@@ -67,7 +67,7 @@ export default function StakePage() {
 
         {/* Pending rewards banner */}
         {rewardBuf !== undefined && rewardBuf > 0n && (
-          <div style={{ border: "1px solid #1f2d1f", background: "#0c150c", padding: "14px 18px", marginBottom: 28, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div style={{ border: "1px solid #1f2d1f", background: "#0c150c", padding: "14px 18px", marginBottom: 28, display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: "8px 16px" }}>
             <div>
               <div style={{ fontSize: 10, color: COLORS.greenLt, letterSpacing: "0.1em", marginBottom: 4 }}>NEXT EPOCH REWARD POOL</div>
               <div style={{ fontSize: 18, fontWeight: 700, color: COLORS.green }}>
@@ -166,13 +166,13 @@ cast send ${CONTRACTS.MINE_CONTROLLER} \\
         </div>
 
         {/* Skill CTA */}
-        <div style={{ border: `1px solid ${COLORS.accent}`, padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <div>
+        <div style={{ border: `1px solid ${COLORS.accent}`, padding: "16px 20px", display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: "12px 24px" }}>
+          <div style={{ flex: "1 1 200px" }}>
             <div style={{ fontSize: 10, color: COLORS.accent, letterSpacing: "0.1em", marginBottom: 6 }}>MINER SKILL</div>
             <div style={{ fontSize: 13, color: "#bbb" }}>automate the full mining loop — stake, mine, reveal, claim</div>
           </div>
           <a href={SKILL_URL} target="_blank" rel="noopener noreferrer"
-            style={{ display: "inline-block", background: COLORS.accent, color: COLORS.white, padding: "9px 18px", fontSize: 12, fontWeight: 700, textDecoration: "none", whiteSpace: "nowrap", marginLeft: 24 }}>
+            style={{ display: "inline-block", background: COLORS.accent, color: COLORS.white, padding: "9px 18px", fontSize: 12, fontWeight: 700, textDecoration: "none", whiteSpace: "nowrap" }}>
             install →
           </a>
         </div>

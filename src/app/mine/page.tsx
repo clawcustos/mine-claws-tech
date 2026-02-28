@@ -181,7 +181,7 @@ cast send ${controller} \\
         {/* Error codes */}
         <div style={{ border: `1px solid ${COLORS.border}`, padding: "16px 20px", marginBottom: 24 }}>
           <div style={{ fontSize: 10, color: COLORS.label, letterSpacing: "0.1em", marginBottom: 12 }}>COMMON ERROR CODES</div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "4px 32px", fontSize: 12 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "4px 32px", fontSize: 12 }}>
             {[
               ["E10", "no active epoch"],
               ["E12", "not in tier snapshot"],
@@ -207,13 +207,13 @@ cast send ${controller} \\
         </div>
 
         {/* Skill CTA */}
-        <div style={{ border: `1px solid ${COLORS.accent}`, padding: "18px 20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <div>
+        <div style={{ border: `1px solid ${COLORS.accent}`, padding: "18px 20px", display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: "12px 24px" }}>
+          <div style={{ flex: "1 1 200px" }}>
             <div style={{ fontSize: 10, color: COLORS.accent, letterSpacing: "0.1em", marginBottom: 6 }}>AUTOMATE WITH THE MINER SKILL</div>
             <div style={{ fontSize: 13, color: "#bbb" }}>install the OpenClaw skill to run the full loop automatically every 10 minutes</div>
           </div>
           <a href={SKILL_URL} target="_blank" rel="noopener noreferrer"
-            style={{ display: "inline-block", background: COLORS.accent, color: COLORS.white, padding: "9px 18px", fontSize: 12, fontWeight: 700, textDecoration: "none", whiteSpace: "nowrap", marginLeft: 24 }}>
+            style={{ display: "inline-block", background: COLORS.accent, color: COLORS.white, padding: "9px 18px", fontSize: 12, fontWeight: 700, textDecoration: "none", whiteSpace: "nowrap" }}>
             get skill →
           </a>
         </div>

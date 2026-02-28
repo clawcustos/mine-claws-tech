@@ -494,7 +494,7 @@ export function MineDashboard() {
         <div style={{ border: `1px solid ${C.border}`, padding: "14px 14px", marginBottom: 20 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
             <div style={{ fontSize: 10, color: C.label, letterSpacing: "0.1em" }}>
-              ROLLING WINDOW — 3 ROUNDS IN FLIGHT SIMULTANEOUSLY
+              ROLLING WINDOW — 3 ROUNDS IN FLIGHT
             </div>
             {dataUpdatedAt ? (
               <div style={{ fontSize: 9, color: "#333", letterSpacing: "0.04em" }}>

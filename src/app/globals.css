@@ -60,6 +60,14 @@ body {
   background: #b91c1c;
 }
 
+/* Safe-area padding for all non-arena pages */
+@media (max-width: 640px) {
+  main {
+    padding-left: env(safe-area-inset-left, 0px);
+    padding-right: env(safe-area-inset-right, 0px);
+  }
+}
+
 /* Arena overlay styles */
 .arena-stats,
 .arena-inspect,

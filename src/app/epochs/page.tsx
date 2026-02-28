@@ -79,7 +79,7 @@ export default function EpochsPage() {
 
         {/* Next epoch pending pool banner */}
         {hasNextPool && (
-          <div style={{ border: "1px solid #1f2d1f", background: "#0c150c", padding: "14px 18px", marginBottom: 20, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div style={{ border: "1px solid #1f2d1f", background: "#0c150c", padding: "14px 18px", marginBottom: 20, display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: "8px 16px" }}>
             <div>
               <div style={{ fontSize: 10, color: COLORS.greenLt, letterSpacing: "0.1em", marginBottom: 4 }}>NEXT EPOCH REWARD POOL</div>
               <div style={{ fontSize: 18, fontWeight: 700, color: COLORS.green }}>{formatCustos(rewardBuffer)} $CUSTOS</div>
