@@ -34,40 +34,50 @@ export function StatsBar({
       fontFamily: "ui-monospace, 'Cascadia Code', 'Fira Code', monospace",
       zIndex: 10,
     }}>
-      {/* Nav row — matches mine/stake/epochs/docs pages */}
+      <style>{`
+        .arena-nav-links { display: flex; gap: 14px; font-size: 12px; }
+        .arena-skill-btn { display: inline-block; }
+        .arena-stats-strip { display: flex; gap: 20px; padding: 6px 16px 7px; }
+        .arena-stat-secondary { display: flex; }
+        @media (max-width: 640px) {
+          .arena-nav-links { gap: 10px; font-size: 11px; }
+          .arena-skill-btn { display: none; }
+          .arena-stats-strip { gap: 12px; padding: 5px 10px 6px; }
+          .arena-stat-secondary { display: none; }
+        }
+      `}</style>
+
+      {/* Nav row */}
       <nav style={{
-        padding: "10px 16px",
+        padding: "8px 12px",
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
         gap: 8,
         borderBottom: "1px solid #111",
       }}>
-        <Link href="/" style={{ display: "flex", alignItems: "center", gap: 8, textDecoration: "none", flexShrink: 0 }}>
+        <Link href="/" style={{ display: "flex", alignItems: "center", gap: 6, textDecoration: "none", flexShrink: 0 }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo.png" alt="Custos" style={{ width: 24, height: 24, borderRadius: 3 }} />
-          <span style={{ color: "#fff", fontWeight: 700, fontSize: 13, whiteSpace: "nowrap" }}>
+          <img src="/logo.png" alt="Custos" style={{ width: 20, height: 20, borderRadius: 3 }} />
+          <span style={{ color: "#fff", fontWeight: 700, fontSize: 12, whiteSpace: "nowrap" }}>
             mine<span style={{ color: "#dc2626" }}>.claws.tech</span>
           </span>
         </Link>
-        <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", justifyContent: "flex-end" }}>
-          <div style={{ display: "flex", gap: 14, fontSize: 12 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
+          <div className="arena-nav-links">
             {([["mine", "/mine"], ["stake", "/stake"], ["epochs", "/epochs"], ["arena", "/arena"], ["docs", "/docs"]] as [string, string][]).map(([label, href]) => (
               <Link key={href} href={href} style={{ color: label === "arena" ? "#fff" : "#555", textDecoration: "none" }}>{label}</Link>
             ))}
           </div>
-          <a href={SKILL_URL} target="_blank" rel="noopener noreferrer"
-            style={{ fontSize: 11, color: "#dc2626", textDecoration: "none", border: "1px solid #dc2626", padding: "4px 10px", letterSpacing: "0.06em", whiteSpace: "nowrap" }}>
+          <a href={SKILL_URL} target="_blank" rel="noopener noreferrer" className="arena-skill-btn"
+            style={{ fontSize: 11, color: "#dc2626", textDecoration: "none", border: "1px solid #dc2626", padding: "3px 8px", letterSpacing: "0.06em", whiteSpace: "nowrap" }}>
             miner skill →
           </a>
         </div>
       </nav>
 
-      {/* Stats strip */}
-      <div style={{
-        padding: "6px 16px 7px",
-        display: "flex",
-        gap: 20,
+      {/* Stats strip — hide MINERS and NEXT on mobile to save space */}
+      <div className="arena-stats-strip" style={{
         alignItems: "center",
         justifyContent: "center",
         flexWrap: "wrap",
@@ -76,9 +86,13 @@ export function StatsBar({
         <StatChip label="EPOCH" value={epochLabel} />
         <StatChip label="ROUND" value={roundCount !== undefined ? `${roundCount} / ${ROUNDS_PER_EPOCH}` : "—"} />
         <StatChip label="REWARDS" value={rewardPool} sub={rewardUsd} accent />
-        <StatChip label="CORRECT" value={totalSettled ? `${totalCorrect}` : "—"} sub={totalSettled ? `${totalSettled} rounds` : undefined} accent={!!totalCorrect} accentColor="#22c55e" />
-        <StatChip label="MINERS" value={stakedAgents !== undefined ? stakedAgents.toString() : "—"} />
-        <StatChip label="NEXT" value={epochTimeLeft > 0 ? formatCountdown(epochTimeLeft) : "—"} />
+        <StatChip label="CORRECT" value={totalSettled ? `${totalCorrect}` : "—"} sub={totalSettled ? `${totalSettled} rds` : undefined} accent={!!totalCorrect} accentColor="#22c55e" />
+        <span className="arena-stat-secondary">
+          <StatChip label="MINERS" value={stakedAgents !== undefined ? stakedAgents.toString() : "—"} />
+        </span>
+        <span className="arena-stat-secondary">
+          <StatChip label="NEXT" value={epochTimeLeft > 0 ? formatCountdown(epochTimeLeft) : "—"} />
+        </span>
       </div>
     </div>
   );

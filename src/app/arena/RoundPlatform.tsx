@@ -474,15 +474,15 @@ export function RoundPlatform({ position, round, onSelectAgent, selectedAgentWal
         </div>
       </Html>
 
-      {/* Question */}
+      {/* Question — hidden on mobile (<640px) to avoid covering blocks */}
       {round.question && (
         <Html position={[0, towerHeight + 0.6, 0]} center zIndexRange={[100, 0]} style={{ pointerEvents: "none" }}>
-          <div style={{
-            color: "#bbb", fontSize: 10, fontFamily: "monospace", maxWidth: 190,
-            textAlign: "center", lineHeight: 1.5, background: "rgba(0,0,0,0.85)",
-            padding: "5px 8px", borderRadius: 3, border: `1px solid ${phaseColor}66`,
+          <div className="arena-question-label" style={{
+            color: "#bbb", fontSize: 10, fontFamily: "monospace", maxWidth: 140,
+            textAlign: "center", lineHeight: 1.4, background: "rgba(0,0,0,0.85)",
+            padding: "4px 7px", borderRadius: 3, border: `1px solid ${phaseColor}44`,
           }}>
-            {round.question.length > 65 ? round.question.slice(0, 62) + "..." : round.question}
+            {round.question.length > 50 ? round.question.slice(0, 47) + "..." : round.question}
           </div>
         </Html>
       )}

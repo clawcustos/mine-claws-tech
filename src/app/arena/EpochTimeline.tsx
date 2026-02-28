@@ -54,20 +54,23 @@ export function EpochTimeline({ allRoundsData, roundCount, currentFlightIds }: E
       background: "rgba(10,10,10,0.85)",
       backdropFilter: "blur(8px)",
       borderTop: "1px solid #1a1a1a",
-      padding: "8px 12px",
+      padding: "6px 12px",
+      paddingBottom: "calc(6px + env(safe-area-inset-bottom, 0px))",
       fontFamily: "monospace",
       zIndex: 10,
     }}>
-      <div style={{
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-        marginBottom: 6,
-      }}>
+      <style>{`
+        .arena-tl-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+        .arena-tl-legend { display: flex; gap: 10px; font-size: 9px; color: #555; }
+        @media (max-width: 640px) {
+          .arena-tl-legend { display: none; }
+        }
+      `}</style>
+      <div className="arena-tl-header">
         <div style={{ fontSize: 9, color: "#666", letterSpacing: "0.1em" }}>
-          EPOCH TIMELINE — {roundCount} / {ROUNDS_PER_EPOCH}
+          EPOCH — {roundCount} / {ROUNDS_PER_EPOCH}
         </div>
-        <div style={{ display: "flex", gap: 10, fontSize: 9, color: "#555" }}>
+        <div className="arena-tl-legend">
           <span><span style={{ display: "inline-block", width: 6, height: 6, background: "#22c55e", marginRight: 3, verticalAlign: "middle" }} />settled</span>
           <span><span style={{ display: "inline-block", width: 6, height: 6, background: "#dc2626", marginRight: 3, verticalAlign: "middle" }} />active</span>
           <span><span style={{ display: "inline-block", width: 6, height: 6, background: "#1a1a1a", marginRight: 3, verticalAlign: "middle", border: "1px solid #333" }} />future</span>
