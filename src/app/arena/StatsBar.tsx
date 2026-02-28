@@ -29,6 +29,7 @@ export function StatsBar({
   return (
     <div style={{
       position: "absolute", top: 0, left: 0, right: 0,
+      paddingTop: "env(safe-area-inset-top, 0px)",
       background: "rgba(10,10,10,0.88)",
       backdropFilter: "blur(10px)",
       fontFamily: "ui-monospace, 'Cascadia Code', 'Fira Code', monospace",

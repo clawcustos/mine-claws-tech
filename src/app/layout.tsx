@@ -1,6 +1,12 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { ClientProviders } from "./client-providers";
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+};
 
 export const metadata: Metadata = {
   title: "mine.claws.tech | Proof-of-Agent-Work Mining",
@@ -12,11 +18,6 @@ export const metadata: Metadata = {
       { url: "/icon-16.png",  sizes: "16x16", type: "image/png" },
     ],
     apple: "/apple-touch-icon.png",
-  },
-  viewport: {
-    width: "device-width",
-    initialScale: 1,
-    viewportFit: "cover",
   },
 };
 

@@ -55,7 +55,7 @@ export function EpochTimeline({ allRoundsData, roundCount, currentFlightIds }: E
       backdropFilter: "blur(8px)",
       borderTop: "1px solid #1a1a1a",
       padding: "6px 12px",
-      paddingBottom: "calc(6px + env(safe-area-inset-bottom, 0px))",
+      paddingBottom: "max(8px, calc(8px + env(safe-area-inset-bottom, 0px)))",
       fontFamily: "monospace",
       zIndex: 10,
     }}>

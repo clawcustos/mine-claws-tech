@@ -67,12 +67,6 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* Hide question labels on mobile — they cover the 3D blocks */
-@media (max-width: 640px) {
-  .arena-question-label {
-    display: none !important;
-  }
-}
 
 .arena-timeline::-webkit-scrollbar {
   height: 4px;
