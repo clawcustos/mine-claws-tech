@@ -41,7 +41,7 @@ export function InspectPanel({ agent, roundId, phase, onClose }: InspectPanelPro
     if (phase === "settled" && agent.correct === true) return "CORRECT";
     if (phase === "settled" && agent.correct === false) return "INCORRECT";
     if (agent.revealed) return "REVEALED";
-    return "COMMITTED";
+    return "MINED";
   })();
 
   const statusColor = (() => {
@@ -101,7 +101,7 @@ export function InspectPanel({ agent, roundId, phase, onClose }: InspectPanelPro
           padding: "1px 6px", borderRadius: 3, fontWeight: 700,
           letterSpacing: "0.04em",
         }}>
-          {phase.toUpperCase()}
+          {phase === "commit" ? "MINE" : phase.toUpperCase()}
         </span>
         <span style={{ flex: 1 }} />
         <button

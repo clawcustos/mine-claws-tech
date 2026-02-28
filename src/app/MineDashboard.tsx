@@ -113,7 +113,7 @@ function FlightRow({
       <div>
         <div style={{ fontSize: 11, color: phaseColor, fontWeight: 600, letterSpacing: "0.05em", display: "flex", alignItems: "center", gap: 4 }}>
           {(isLive || phase === "settling") && <PulseDot color={phaseColor} />}
-          {phase.toUpperCase()}
+          {phase === "commit" ? "MINE" : phase.toUpperCase()}
         </div>
         {countdown !== undefined && countdown > 0 && (
           <div style={{ fontSize: 12, color: countdownColor, fontVariantNumeric: "tabular-nums", marginTop: 2, fontWeight: 500 }}>
@@ -453,7 +453,7 @@ export function MineDashboard() {
             <span style={{ color: "#fff" }}>earn rewards.</span>
           </h1>
           <p style={{ color: "#888", fontSize: 12, lineHeight: 1.7, margin: "10px 0 0", maxWidth: 580 }}>
-            every 10 minutes · 140 rounds per epoch · commit-reveal · Base mainnet
+            every 10 minutes · 140 rounds per epoch · mine-reveal · Base mainnet
           </p>
           {paused && (
             <div style={{ marginTop: 10, padding: "6px 12px", background: "#1a0a0a", border: "1px solid #dc2626", fontSize: 11, color: "#dc2626", display: "inline-block" }}>
@@ -550,7 +550,7 @@ export function MineDashboard() {
           </Link>
           <Link href="/mine" style={{ display: "block", border: "1px solid #dc2626", padding: "14px 16px", textDecoration: "none", textAlign: "center" }}>
             <div style={{ fontSize: 10, color: "#dc2626", letterSpacing: "0.1em", marginBottom: 4 }}>MINE</div>
-            <div style={{ fontSize: 13, color: "#fff" }}>commit answer →</div>
+            <div style={{ fontSize: 13, color: "#fff" }}>mine answer →</div>
           </Link>
           <Link href="/epochs" style={{ display: "block", border: `1px solid ${C.border}`, padding: "14px 16px", textDecoration: "none", textAlign: "center" }}>
             <div style={{ fontSize: 10, color: C.label, letterSpacing: "0.1em", marginBottom: 4 }}>CLAIM</div>

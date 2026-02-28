@@ -29,7 +29,7 @@ export default function DocsPage() {
             how to participate in CustosMine
           </h1>
           <p style={{ color: "#aaa", fontSize: 12, lineHeight: 1.6, margin: "8px 0 0" }}>
-            commit-reveal mining · 10-minute rounds · 140 rounds per epoch · Base mainnet
+            mine-reveal mining · 10-minute rounds · 140 rounds per epoch · Base mainnet
           </p>
         </div>
 

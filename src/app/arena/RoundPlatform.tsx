@@ -30,6 +30,15 @@ const PHASE_COLORS: Record<string, string> = {
   expired: "#666666",
 };
 
+// Display labels — "commit" → "MINE" for user-facing text
+const PHASE_LABEL: Record<string, string> = {
+  commit: "MINE",
+  reveal: "REVEAL",
+  settling: "SETTLING",
+  settled: "SETTLED",
+  expired: "EXPIRED",
+};
+
 // Phase → emissive tint on blocks (gives each phase a distinct color feel)
 const PHASE_EMISSIVE: Record<string, { color: string; base: number; pulse: number; freq: number }> = {
   commit:   { color: "#ffffff", base: 0.18, pulse: 0.08, freq: 1.5 },
@@ -360,15 +369,29 @@ export function RoundPlatform({ position, round, onSelectAgent, selectedAgentWal
         const bOff = block.agentIndex * 1.1 + block.layerInAgent * 0.3;
 
         if (round.phase === "commit") {
-          // COMMIT: Active mining feel — pronounced rhythmic bob + slight side rock
+          // MINE: Rhythmic bob + pickaxe impact wobble synced to swing peak (sin(t*4) peak)
           y += Math.sin(t * 1.5 + bOff) * 0.025;
           xOff = Math.sin(t * 0.8 + bOff * 2) * 0.008;
           rz = Math.sin(t * 1.5 + bOff) * 0.02;
+          // Impact pulse — peaks when pickaxe contacts (sin(t*4) = 1)
+          // Uses pow to sharpen the pulse into a brief jolt
+          const impact = Math.max(0, Math.sin(t * 4));
+          const pulse = Math.pow(impact, 8); // sharp spike at contact
+          y += pulse * 0.04 * (1 - py * 0.15); // top blocks wobble more
+          rz += pulse * 0.04 * Math.sin(bOff * 3);
+          rx = pulse * 0.03 * Math.cos(bOff * 2);
         } else if (round.phase === "reveal") {
-          // REVEAL: Tension breathing — faster pulse, blocks expand/contract feel
-          y += Math.sin(t * 2.5 + bOff) * 0.035;
-          const breathScale = 1 + Math.sin(t * 2.5 + bOff) * 0.015;
-          group.scale.set(breathScale, breathScale, breathScale);
+          // REVEAL: Revealed blocks float up with a green tint; unrevealed breathe anxiously
+          if (agent.revealed) {
+            // Revealed — calm confident float
+            y += 0.04 + Math.sin(t * 1.2 + bOff) * 0.015;
+            rz = Math.sin(t * 0.6 + bOff) * 0.01;
+          } else {
+            // Unrevealed — tense breathing, blocks expand/contract
+            y += Math.sin(t * 2.5 + bOff) * 0.035;
+            const breathScale = 1 + Math.sin(t * 2.5 + bOff) * 0.015;
+            group.scale.set(breathScale, breathScale, breathScale);
+          }
         } else if (round.phase === "settling") {
           // SETTLING: Anxious vibration — rapid shimmer + purple-tinted shake
           y += Math.sin(t * 8 + bOff * 3) * 0.012;
@@ -393,8 +416,9 @@ export function RoundPlatform({ position, round, onSelectAgent, selectedAgentWal
       group.position.set(px + xOff, y, pz + zOff);
       group.rotation.set(rx, 0, rz);
 
-      // Reset scale for non-reveal phases (reveal uses scale animation)
-      if (round.phase !== "reveal" && landed) {
+      // Reset scale — reveal unrevealed uses breathing scale animation, skip those
+      const isBreathing = round.phase === "reveal" && !agent.revealed;
+      if (!isBreathing && landed) {
         const isH = hoveredAgent === agent.wallet;
         const isS = selectedAgentWallet === agent.wallet && selectedRoundId === round.roundId;
         const s = isH || isS ? 1.12 : 1;
@@ -433,6 +457,10 @@ export function RoundPlatform({ position, round, onSelectAgent, selectedAgentWal
           // Dim for incorrect
           mat.emissive.set("#222222");
           mat.emissiveIntensity = 0.03;
+        } else if (round.phase === "reveal" && agent.revealed) {
+          // Revealed during reveal phase — green-tinted glow to stand out
+          mat.emissive.set("#22c55e");
+          mat.emissiveIntensity = 0.20 + Math.sin(t * 1.2 + block.agentIndex * 0.7) * 0.06;
         } else {
           // Phase-tinted emissive pulse
           mat.emissive.set(phaseEmit.color);
@@ -464,7 +492,7 @@ export function RoundPlatform({ position, round, onSelectAgent, selectedAgentWal
             padding: "1px 6px", borderRadius: 3, fontWeight: 700,
             letterSpacing: "0.05em",
           }}>
-            {round.phase.toUpperCase()}
+            {PHASE_LABEL[round.phase] ?? round.phase.toUpperCase()}
           </span>
           {round.countdown > 0 && (
             <span style={{ fontSize: 11, color: phaseColor, fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>

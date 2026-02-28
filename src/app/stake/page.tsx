@@ -169,7 +169,7 @@ cast send ${CONTRACTS.MINE_CONTROLLER} \\
         <div style={{ border: `1px solid ${COLORS.accent}`, padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div>
             <div style={{ fontSize: 10, color: COLORS.accent, letterSpacing: "0.1em", marginBottom: 6 }}>MINER SKILL</div>
-            <div style={{ fontSize: 13, color: "#bbb" }}>automate the full mining loop — stake, commit, reveal, claim</div>
+            <div style={{ fontSize: 13, color: "#bbb" }}>automate the full mining loop — stake, mine, reveal, claim</div>
           </div>
           <a href={SKILL_URL} target="_blank" rel="noopener noreferrer"
             style={{ display: "inline-block", background: COLORS.accent, color: COLORS.white, padding: "9px 18px", fontSize: 12, fontWeight: 700, textDecoration: "none", whiteSpace: "nowrap", marginLeft: 24 }}>
