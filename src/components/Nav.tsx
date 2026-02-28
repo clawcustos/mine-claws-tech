@@ -17,6 +17,11 @@ export function Nav({ active }: { active: string }) {
         }
       `}</style>
       <nav className="site-nav" style={{
+        position: "sticky",
+        top: 0,
+        zIndex: 20,
+        background: "rgba(10,10,10,0.92)",
+        backdropFilter: "blur(10px)",
         borderBottom: `1px solid ${COLORS.border}`,
         display: "flex",
         alignItems: "center",
