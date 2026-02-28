@@ -247,8 +247,26 @@ export default function ArenaPage() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
+  // Lock body scroll on arena page (prevents mobile bounce/scroll)
+  useEffect(() => {
+    const html = document.documentElement;
+    const body = document.body;
+    html.style.overflow = "hidden";
+    body.style.overflow = "hidden";
+    body.style.position = "fixed";
+    body.style.inset = "0";
+    body.style.touchAction = "none";
+    return () => {
+      html.style.overflow = "";
+      body.style.overflow = "";
+      body.style.position = "";
+      body.style.inset = "";
+      body.style.touchAction = "";
+    };
+  }, []);
+
   return (
-    <div className="arena-root" style={{ width: "100vw", height: "100dvh", position: "relative", background: "#050302", overflow: "hidden" }}>
+    <div className="arena-root" style={{ width: "100vw", height: "100dvh", position: "relative", background: "#050302", overflow: "hidden", touchAction: "none" }}>
       <Canvas
         camera={{ position: [0, 6, 14], fov: 45 }}
         style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%" }}
