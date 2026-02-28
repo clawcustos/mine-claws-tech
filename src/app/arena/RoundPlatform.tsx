@@ -68,6 +68,7 @@ interface RoundPlatformProps {
   round: FlightRound;
   onSelectAgent: (agent: AgentInscription, roundId: string, phase: string) => void;
   selectedAgentWallet: string | null;
+  selectedRoundId: string | null;
   onShake?: (intensity: number) => void;
 }
 
@@ -155,11 +156,69 @@ function TowerDebris({ count, radius, height, color }: {
 
 // ─── Main RoundPlatform ─────────────────────────────────────────────
 
-export function RoundPlatform({ position, round, onSelectAgent, selectedAgentWallet, onShake }: RoundPlatformProps) {
+export function RoundPlatform({ position, round, onSelectAgent, selectedAgentWallet, selectedRoundId, onShake }: RoundPlatformProps) {
   const phaseColor = PHASE_COLORS[round.phase] ?? "#666666";
   const [hoveredAgent, setHoveredAgent] = useState<string | null>(null);
+  const [selectedBlockIdx, setSelectedBlockIdx] = useState<number | null>(null);
   const agents = round.agents;
   const count = agents.length;
+
+  // ─── Cursor-following tooltip (imperative DOM for perf) ──────────
+  const tooltipRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const el = document.createElement("div");
+    Object.assign(el.style, {
+      position: "fixed",
+      pointerEvents: "none",
+      zIndex: "1000",
+      display: "none",
+      background: "rgba(0,0,0,0.9)",
+      border: `1px solid ${COLORS.highlight}`,
+      padding: "5px 10px",
+      fontSize: "10px",
+      fontFamily: "monospace",
+      color: "#eee",
+      whiteSpace: "nowrap",
+      borderRadius: "3px",
+      transform: "translate(12px, -50%)",
+    });
+    document.body.appendChild(el);
+    tooltipRef.current = el;
+    return () => { el.remove(); };
+  }, []);
+
+  // Follow cursor globally (avoids R3F event type issues)
+  useEffect(() => {
+    const onMove = (e: PointerEvent) => {
+      if (tooltipRef.current) {
+        tooltipRef.current.style.left = `${e.clientX}px`;
+        tooltipRef.current.style.top = `${e.clientY}px`;
+      }
+    };
+    window.addEventListener("pointermove", onMove);
+    return () => window.removeEventListener("pointermove", onMove);
+  }, []);
+
+  // Update tooltip content when hovered agent changes
+  useEffect(() => {
+    if (!tooltipRef.current) return;
+    if (!hoveredAgent) {
+      tooltipRef.current.style.display = "none";
+      return;
+    }
+    const agent = agents.find(a => a.wallet === hoveredAgent);
+    if (!agent) {
+      tooltipRef.current.style.display = "none";
+      return;
+    }
+    let html = shortAddr(agent.wallet);
+    if (agent.tier > 0) html += `<span style="color:${COLORS.base};margin-left:5px">T${agent.tier}</span>`;
+    if (round.phase === "settled" && agent.correct === true) html += `<span style="color:#4ade80;margin-left:5px">correct</span>`;
+    if (round.phase === "settled" && agent.correct === false) html += `<span style="color:#888;margin-left:5px">wrong</span>`;
+    tooltipRef.current.innerHTML = html;
+    tooltipRef.current.style.display = "block";
+  }, [hoveredAgent, agents, round.phase]);
 
   // Smooth position transitions
   const platformRef = useRef<THREE.Group>(null);
@@ -172,9 +231,10 @@ export function RoundPlatform({ position, round, onSelectAgent, selectedAgentWal
   });
 
   // Build blocks: cross-section × layers per agent
-  const { voxels, towerHeight } = useMemo(() => {
+  const { voxels, towerHeight, agentTopY } = useMemo(() => {
     const blocks: VoxelBlock[] = [];
-    if (count === 0) return { voxels: blocks, towerHeight: 0 };
+    const topY = new Map<string, number>();
+    if (count === 0) return { voxels: blocks, towerHeight: 0, agentTopY: topY };
 
     const blocksPerLayer = count <= 2 ? CROSS_SECTION.length : count <= 4 ? 5 : 4;
     let layerY = BASE_Y;
@@ -211,9 +271,12 @@ export function RoundPlatform({ position, round, onSelectAgent, selectedAgentWal
         }
         layerY += STEP;
       }
+
+      // Track the top Y of each agent's blocks
+      topY.set(agent.wallet, layerY);
     });
 
-    return { voxels: blocks, towerHeight: layerY };
+    return { voxels: blocks, towerHeight: layerY, agentTopY: topY };
   }, [agents, count, round.phase]);
 
   // Block group refs
@@ -333,7 +396,7 @@ export function RoundPlatform({ position, round, onSelectAgent, selectedAgentWal
       // Reset scale for non-reveal phases (reveal uses scale animation)
       if (round.phase !== "reveal" && landed) {
         const isH = hoveredAgent === agent.wallet;
-        const isS = selectedAgentWallet === agent.wallet;
+        const isS = selectedAgentWallet === agent.wallet && selectedRoundId === round.roundId;
         const s = isH || isS ? 1.12 : 1;
         group.scale.lerp(new THREE.Vector3(s, s, s), 0.15);
       } else if (!landed) {
@@ -345,10 +408,20 @@ export function RoundPlatform({ position, round, onSelectAgent, selectedAgentWal
       if (mat) {
         const isH = hoveredAgent === agent.wallet;
         const isS = selectedAgentWallet === agent.wallet;
+        const isActiveRound = selectedRoundId === round.roundId;
 
-        if (isS) {
-          mat.emissive.set("#ffd700");
-          mat.emissiveIntensity = 0.35 + Math.sin(t * 3) * 0.15;
+        if (isS && isActiveRound && i === selectedBlockIdx) {
+          // Bright cyan for the specifically clicked block (active round only)
+          mat.emissive.set("#00bfff");
+          mat.emissiveIntensity = 0.45 + Math.sin(t * 3) * 0.15;
+        } else if (isS && isActiveRound) {
+          // Dimmer cyan for the agent's other blocks (active round only)
+          mat.emissive.set("#00bfff");
+          mat.emissiveIntensity = 0.18 + Math.sin(t * 2) * 0.06;
+        } else if (isS) {
+          // Subtle indicator on other rounds where this agent appears
+          mat.emissive.set("#00bfff");
+          mat.emissiveIntensity = 0.08 + Math.sin(t * 1.5) * 0.03;
         } else if (isH) {
           mat.emissive.set("#ffffff");
           mat.emissiveIntensity = 0.15 + Math.sin(t * 5) * 0.05;
@@ -377,15 +450,29 @@ export function RoundPlatform({ position, round, onSelectAgent, selectedAgentWal
     <group ref={platformRef} position={position}>
       <PlatformBase phaseColor={phaseColor} />
 
-      {/* Phase label */}
-      <Text position={[0, -0.13, 1.18]} fontSize={0.12} color={phaseColor} anchorX="center" anchorY="middle">
-        {`#${round.roundId}  ${round.phase.toUpperCase()}`}
-      </Text>
-      {round.countdown > 0 && (
-        <Text position={[0, -0.13, 1.38]} fontSize={0.09} color={phaseColor} anchorX="center" anchorY="middle">
-          {formatCountdown(round.countdown)}
-        </Text>
-      )}
+      {/* Phase label + countdown — HTML overlay for crisp text at any zoom */}
+      <Html position={[0, -0.3, 0]} center zIndexRange={[50, 0]} style={{ pointerEvents: "none" }}>
+        <div style={{
+          display: "flex", alignItems: "center", gap: 8,
+          fontFamily: "monospace", whiteSpace: "nowrap", userSelect: "none",
+        }}>
+          <span style={{ fontSize: 11, color: phaseColor, fontWeight: 700 }}>
+            #{round.roundId}
+          </span>
+          <span style={{
+            fontSize: 9, color: "#000", background: phaseColor,
+            padding: "1px 6px", borderRadius: 3, fontWeight: 700,
+            letterSpacing: "0.05em",
+          }}>
+            {round.phase.toUpperCase()}
+          </span>
+          {round.countdown > 0 && (
+            <span style={{ fontSize: 11, color: phaseColor, fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
+              {formatCountdown(round.countdown)}
+            </span>
+          )}
+        </div>
+      </Html>
 
       {/* Question */}
       {round.question && (
@@ -415,7 +502,7 @@ export function RoundPlatform({ position, round, onSelectAgent, selectedAgentWal
               args={[BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE]}
               radius={BLOCK_SIZE * 0.13}
               smoothness={4}
-              onClick={(e) => { e.stopPropagation(); onSelectAgent(agent, round.roundId, round.phase); }}
+              onClick={(e) => { e.stopPropagation(); setSelectedBlockIdx(i); onSelectAgent(agent, round.roundId, round.phase); }}
               onPointerOver={(e) => { e.stopPropagation(); setHoveredAgent(agent.wallet); document.body.style.cursor = "pointer"; }}
               onPointerOut={() => { setHoveredAgent(null); document.body.style.cursor = "auto"; }}
               castShadow
@@ -431,9 +518,9 @@ export function RoundPlatform({ position, round, onSelectAgent, selectedAgentWal
               />
             </RoundedBox>
 
-            {selectedAgentWallet === agent.wallet && (
+            {selectedAgentWallet === agent.wallet && selectedRoundId === round.roundId && i === selectedBlockIdx && (
               <RoundedBox args={[BLOCK_SIZE + 0.03, BLOCK_SIZE + 0.03, BLOCK_SIZE + 0.03]} radius={BLOCK_SIZE * 0.13} smoothness={4}>
-                <meshStandardMaterial color="#ffd700" transparent opacity={0.15} emissive="#ffd700" emissiveIntensity={0.5} />
+                <meshStandardMaterial color="#00bfff" transparent opacity={0.15} emissive="#00bfff" emissiveIntensity={0.5} />
               </RoundedBox>
             )}
           </group>
@@ -442,27 +529,8 @@ export function RoundPlatform({ position, round, onSelectAgent, selectedAgentWal
 
       {/* Pickaxe — commit phase */}
       {count > 0 && round.phase === "commit" && (
-        <VoxelPickaxe active={true} position={[1.2, towerHeight / 2, 0]} />
+        <VoxelPickaxe active={true} position={[1.5, towerHeight * 0.75, 0]} />
       )}
-
-      {/* Hover tooltip */}
-      {hoveredAgent && agents.map(agent => {
-        if (hoveredAgent !== agent.wallet) return null;
-        return (
-          <Html key={`tip-${agent.inscriptionId}`} position={[0, towerHeight + 1.0, 0]} center zIndexRange={[200, 100]} style={{ pointerEvents: "none" }}>
-            <div style={{
-              background: "rgba(0,0,0,0.9)", border: `1px solid ${COLORS.highlight}`,
-              padding: "5px 10px", fontSize: 10, fontFamily: "monospace",
-              color: "#eee", whiteSpace: "nowrap", borderRadius: 3,
-            }}>
-              {shortAddr(agent.wallet)}
-              {agent.tier > 0 && <span style={{ color: COLORS.base, marginLeft: 5 }}>T{agent.tier}</span>}
-              {round.phase === "settled" && agent.correct === true && <span style={{ color: "#4ade80", marginLeft: 5 }}>correct</span>}
-              {round.phase === "settled" && agent.correct === false && <span style={{ color: "#888", marginLeft: 5 }}>wrong</span>}
-            </div>
-          </Html>
-        );
-      })}
 
       {/* Debris */}
       {count > 0 && (

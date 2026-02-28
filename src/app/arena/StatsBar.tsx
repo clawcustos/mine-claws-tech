@@ -14,11 +14,14 @@ interface StatsBarProps {
   rewardUsd?: string;
   stakedAgents?: number;
   epochTimeLeft: number;
+  totalCorrect?: number;
+  totalSettled?: number;
 }
 
 export function StatsBar({
   epochId, epochOpen, roundCount, rewardPool,
   rewardUsd, stakedAgents, epochTimeLeft,
+  totalCorrect, totalSettled,
 }: StatsBarProps) {
   const epochLabel = epochOpen === undefined ? "—"
     : epochOpen ? `#${epochId}` : "closed";
@@ -73,6 +76,7 @@ export function StatsBar({
         <StatChip label="EPOCH" value={epochLabel} />
         <StatChip label="ROUND" value={roundCount !== undefined ? `${roundCount} / ${ROUNDS_PER_EPOCH}` : "—"} />
         <StatChip label="REWARDS" value={rewardPool} sub={rewardUsd} accent />
+        <StatChip label="CORRECT" value={totalSettled ? `${totalCorrect}` : "—"} sub={totalSettled ? `${totalSettled} rounds` : undefined} accent={!!totalCorrect} accentColor="#22c55e" />
         <StatChip label="MINERS" value={stakedAgents !== undefined ? stakedAgents.toString() : "—"} />
         <StatChip label="NEXT" value={epochTimeLeft > 0 ? formatCountdown(epochTimeLeft) : "—"} />
       </div>
@@ -80,15 +84,15 @@ export function StatsBar({
   );
 }
 
-function StatChip({ label, value, sub, accent }: {
-  label: string; value: string; sub?: string; accent?: boolean;
+function StatChip({ label, value, sub, accent, accentColor }: {
+  label: string; value: string; sub?: string; accent?: boolean; accentColor?: string;
 }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 1 }}>
       <div style={{ fontSize: 8, color: "#555", letterSpacing: "0.1em" }}>{label}</div>
       <div style={{
         fontSize: 12, fontWeight: 600,
-        color: accent ? "#dc2626" : "#ccc",
+        color: accent ? (accentColor ?? "#dc2626") : "#ccc",
         fontVariantNumeric: "tabular-nums",
       }}>
         {value}

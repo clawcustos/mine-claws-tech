@@ -7,29 +7,34 @@ import { CONTRACTS, BASESCAN, ROUNDS_PER_EPOCH } from "@/lib/constants";
 import { MINE_CONTROLLER_ABI } from "@/lib/abis";
 import { formatCustos, formatCountdown } from "@/lib/utils";
 import { useCustosPrice, formatCustosUsd } from "@/hooks/useCustosPrice";
+import { COLORS, SKILL_URL } from "@/lib/tokens";
+import { Nav } from "@/components/Nav";
 
-const SKILL_URL = "https://github.com/clawcustos/mine-claws-tech/blob/main/SKILL.md";
 const CA = CONTRACTS.CUSTOS_TOKEN;
 const c = { address: CONTRACTS.MINE_CONTROLLER as `0x${string}`, abi: MINE_CONTROLLER_ABI };
 const WINDOW = 600; // seconds per phase
 
 // Colour palette — readable on #0a0a0a background
 const C = {
-  label:    "#999",   // section eyebrows, stat labels
-  sub:      "#777",   // stat sub-text
-  nav:      "#999",   // nav links
-  text:     "#ccc",   // body / question text
-  dim:      "#888",   // secondary / expired
-  tableHdr: "#666",   // table column headers
-  border:   "#1a1a1a",
-  footer:   "#555",
+  label:    COLORS.label,
+  sub:      COLORS.sub,
+  nav:      COLORS.label,
+  text:     COLORS.text,
+  dim:      "#888",
+  tableHdr: "#666",
+  border:   COLORS.border,
+  footer:   COLORS.dim,
 };
 
-function Stat({ label, value, sub, accent }: { label: string; value: string; sub?: string; accent?: boolean }) {
+function Stat({ label, value, sub, accent, loading }: { label: string; value: string; sub?: string; accent?: boolean; loading?: boolean }) {
   return (
     <div style={{ border: `1px solid ${C.border}`, padding: "12px 14px" }}>
       <div style={{ fontSize: 9, color: C.label, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 4 }}>{label}</div>
-      <div style={{ fontSize: "clamp(16px, 4vw, 22px)", fontWeight: 700, lineHeight: 1, color: accent ? "#dc2626" : "#fff" }}>{value}</div>
+      {loading ? (
+        <div style={{ height: 22, width: 80, background: "#151515", borderRadius: 2, animation: "pulse 1.8s ease-in-out infinite" }} />
+      ) : (
+        <div style={{ fontSize: "clamp(16px, 4vw, 22px)", fontWeight: 700, lineHeight: 1, color: accent ? "#dc2626" : "#fff" }}>{value}</div>
+      )}
       {sub && <div style={{ fontSize: 9, color: C.sub, marginTop: 4, lineHeight: 1.4 }}>{sub}</div>}
     </div>
   );
@@ -68,7 +73,7 @@ function FlightRow({
       </span>
       {correctCount !== undefined && (
         <div style={{ fontSize: 10, color: C.sub, marginTop: 2 }}>
-          {correctCount} credit{correctCount !== 1 ? "s" : ""} issued
+          {correctCount} successful mine{correctCount !== 1 ? "s" : ""}
         </div>
       )}
     </>
@@ -232,7 +237,7 @@ function RecentRounds({
                 {ans.length > 18 ? ans.slice(0, 8) + "…" + ans.slice(-6) : ans}
               </div>
               <div style={{ fontSize: 9, color: C.sub, marginTop: 2 }}>
-                {Number(r.correctCount)} credit{Number(r.correctCount) !== 1 ? "s" : ""}
+                {Number(r.correctCount)} mine{Number(r.correctCount) !== 1 ? "s" : ""}
               </div>
             </div>
           </div>
@@ -435,26 +440,7 @@ export function MineDashboard() {
       `}</style>
 
       {/* Nav */}
-      <nav style={{ borderBottom: `1px solid ${C.border}`, padding: "10px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo.png" alt="Custos" style={{ width: 24, height: 24, borderRadius: 3 }} />
-          <span style={{ color: "#fff", fontWeight: 700, fontSize: 13, whiteSpace: "nowrap" }}>mine<span style={{ color: "#dc2626" }}>.claws.tech</span></span>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", justifyContent: "flex-end" }}>
-          <div style={{ display: "flex", gap: 14, fontSize: 12 }}>
-            <Link href="/mine"   style={{ color: C.nav, textDecoration: "none" }}>mine</Link>
-            <Link href="/stake"  style={{ color: C.nav, textDecoration: "none" }}>stake</Link>
-            <Link href="/epochs" style={{ color: C.nav, textDecoration: "none" }}>epochs</Link>
-            <Link href="/arena"  style={{ color: "#dc2626", textDecoration: "none" }}>arena</Link>
-            <Link href="/docs"   style={{ color: C.nav, textDecoration: "none" }}>docs</Link>
-          </div>
-          <a href={SKILL_URL} target="_blank" rel="noopener noreferrer"
-            style={{ fontSize: 11, color: "#dc2626", textDecoration: "none", border: "1px solid #dc2626", padding: "4px 10px", letterSpacing: "0.06em", whiteSpace: "nowrap" }}>
-            miner skill →
-          </a>
-        </div>
-      </nav>
+      <Nav active="" />
 
       <div style={{ maxWidth: 900, margin: "0 auto", padding: "24px 16px 40px" }}>
 
@@ -477,11 +463,11 @@ export function MineDashboard() {
         </div>
 
         {/* What is this — agent framing */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 1, background: C.border, marginBottom: 20 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 1, background: C.border, marginBottom: 20 }}>
           {([
             ["mine", "Set up an agent on CustosNetwork. Every 10 minutes it answers an onchain question to earn $CUSTOS."],
             ["work", "While mining, your agent can carry out one useful task per loop — anything you configure it to do."],
-            ["earn", "Correct answers earn credits. Credits determine your share of the epoch reward pool."],
+            ["earn", "Correct answers are successful mines. Mines determine your share of the epoch reward pool."],
           ] as [string, string][]).map(([title, desc]) => (
             <div key={title} style={{ background: "#0a0a0a", padding: "14px 18px" }}>
               <div style={{ fontSize: 10, color: "#dc2626", letterSpacing: "0.12em", fontWeight: 600, marginBottom: 6 }}>{title.toUpperCase()}</div>
@@ -491,17 +477,17 @@ export function MineDashboard() {
         </div>
 
         {/* Stats row 1 */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 1, background: C.border, marginBottom: 1 }}>
-          <Stat label="epoch rewards"  value={rewardPool}   sub={rewardUsd ?? "$CUSTOS pool"} accent />
-          <Stat label="credits issued" value={totalCredits} sub="settled rounds" />
-          <Stat label="epoch ends in"  value={epochOpen && epochEndAt ? formatCountdown(epochTimeLeft) : "—"} sub={epochEndAt ? new Date(epochEndAt * 1000).toUTCString().replace(" GMT", " UTC") : "24h / epoch"} />
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 1, background: C.border, marginBottom: 1 }}>
+          <Stat label="epoch rewards"  value={rewardPool}   sub={rewardUsd ?? "$CUSTOS pool"} accent loading={data === undefined} />
+          <Stat label="successful mines" value={totalCredits} sub="settled rounds" loading={data === undefined} />
+          <Stat label="epoch ends in"  value={epochOpen && epochEndAt ? formatCountdown(epochTimeLeft) : "—"} sub={epochEndAt ? new Date(epochEndAt * 1000).toUTCString().replace(" GMT", " UTC") : "24h / epoch"} loading={data === undefined} />
         </div>
 
         {/* Stats row 2 */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 1, background: C.border, marginBottom: 20 }}>
-          <Stat label="epoch"            value={epochLabel}  sub={`round ${roundCount?.toString() ?? "—"} / ${ROUNDS_PER_EPOCH}`} />
-          <Stat label="active miners"    value={stakedAgents !== undefined ? stakedAgents.toString() : "—"} sub="staked agents" />
-          <Stat label="rounds in flight" value={rN ? "3" : rN1 ? "2" : "0"} sub="simultaneous" />
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 1, background: C.border, marginBottom: 20 }}>
+          <Stat label="epoch"            value={epochLabel}  sub={`round ${roundCount?.toString() ?? "—"} / ${ROUNDS_PER_EPOCH}`} loading={data === undefined} />
+          <Stat label="active miners"    value={stakedAgents !== undefined ? stakedAgents.toString() : "—"} sub="staked agents" loading={data === undefined} />
+          <Stat label="rounds in flight" value={rN ? "3" : rN1 ? "2" : "0"} sub="simultaneous" loading={data === undefined} />
         </div>
 
         {/* 3-flight panel */}

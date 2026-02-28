@@ -9,8 +9,12 @@ interface VoxelPickaxeProps {
   position: [number, number, number];
 }
 
+// The left tip of the pickaxe head relative to the pivot origin
+const TIP_OFFSET_X = -0.42;
+const TIP_OFFSET_Y = 0.72;
+
 // Mining shards — small cubes that burst from the strike point on each impact
-function MiningShards({ position, active }: { position: [number, number, number]; active: boolean }) {
+function MiningShards({ tipRef, active }: { tipRef: React.RefObject<THREE.Vector3 | null>; active: boolean }) {
   const count = 12;
   const meshRef = useRef<THREE.InstancedMesh>(null);
   const dummy = useMemo(() => new THREE.Object3D(), []);
@@ -25,35 +29,51 @@ function MiningShards({ position, active }: { position: [number, number, number]
       size: 0,
     }))
   );
-  const prevSwingSign = useRef(1);
+  // Track swing to detect the peak (tip closest to tower = positive rotation peak)
+  const prevSwing = useRef(0);
+  const wasIncreasing = useRef(false);
+  // Snapshot tip position at impact so shards don't drift with the swing
+  const impactOrigin = useRef(new THREE.Vector3());
 
   useFrame(({ clock }) => {
     if (!meshRef.current) return;
     const t = clock.getElapsedTime();
     const dt = 1 / 60;
 
-    // Detect impact: swing crosses from positive to negative (forward strike)
+    // Detect impact at swing peak: positive rotation.z swings the tip toward the tower
     const swing = Math.sin(t * 4);
-    const crossed = prevSwingSign.current >= 0 && swing < 0;
-    prevSwingSign.current = swing >= 0 ? 1 : -1;
+    const isIncreasing = swing > prevSwing.current;
+    const hitPeak = wasIncreasing.current && !isIncreasing;
+    wasIncreasing.current = isIncreasing;
+    prevSwing.current = swing;
 
-    if (active && crossed) {
-      // Respawn all shards from the strike point
+    const tip = tipRef.current;
+
+    if (active && hitPeak && tip) {
+      // Snapshot the tip position at the moment of impact
+      impactOrigin.current.copy(tip);
+      // Respawn all shards from the contact point
       for (let i = 0; i < count; i++) {
         const s = shards.current[i];
         s.x = 0;
         s.y = 0;
         s.z = 0;
-        // Spray outward — mostly away from pickaxe (negative X) and upward
-        s.vx = -1.5 - Math.random() * 2.5;
-        s.vy = 1.0 + Math.random() * 2.5;
+        // Spray outward from contact face (away from tower center) + upward
+        const angle = (Math.random() - 0.5) * Math.PI * 0.6; // ±54° spread
+        const speed = 1.5 + Math.random() * 2.0;
+        s.vx = Math.cos(angle) * speed; // away from tower (positive X = away)
+        s.vy = Math.sin(angle) * speed + 1.0 + Math.random() * 1.5; // upward bias
         s.vz = (Math.random() - 0.5) * 2.0;
         s.life = 1.0;
         s.size = 0.03 + Math.random() * 0.05;
       }
     }
 
-    // Update shards
+    // Update shards — use snapshotted impact origin, not the live tip
+    const ox = impactOrigin.current.x;
+    const oy = impactOrigin.current.y;
+    const oz = impactOrigin.current.z;
+
     for (let i = 0; i < count; i++) {
       const s = shards.current[i];
       if (s.life <= 0) {
@@ -69,11 +89,7 @@ function MiningShards({ position, active }: { position: [number, number, number]
       s.y += s.vy * dt;
       s.z += s.vz * dt;
 
-      dummy.position.set(
-        position[0] + s.x,
-        position[1] + s.y,
-        position[2] + s.z,
-      );
+      dummy.position.set(ox + s.x, oy + s.y, oz + s.z);
       dummy.rotation.set(t * 3 + i, t * 2 + i * 0.5, 0);
       const scale = s.size * Math.max(0, s.life);
       dummy.scale.setScalar(scale);
@@ -106,24 +122,28 @@ function MiningShards({ position, active }: { position: [number, number, number]
 export function VoxelPickaxe({ active, position }: VoxelPickaxeProps) {
   const pivotRef = useRef<THREE.Group>(null);
   const groupRef = useRef<THREE.Group>(null);
+  const tipWorldPos = useRef<THREE.Vector3>(new THREE.Vector3());
 
   useFrame(({ clock }) => {
     if (!pivotRef.current || !groupRef.current) return;
     const t = clock.getElapsedTime();
     if (active) {
-      pivotRef.current.rotation.z = Math.sin(t * 4) * 0.7;
+      const rot = Math.sin(t * 4) * 0.5; // reduced from 0.7 to 0.5
+      pivotRef.current.rotation.z = rot;
       groupRef.current.position.y = position[1] + Math.sin(t * 4) * 0.05;
+
+      // Compute actual tip world position from pivot rotation
+      const tipX = Math.cos(rot) * TIP_OFFSET_X - Math.sin(rot) * TIP_OFFSET_Y;
+      const tipY = Math.sin(rot) * TIP_OFFSET_X + Math.cos(rot) * TIP_OFFSET_Y;
+      tipWorldPos.current.set(
+        position[0] + tipX,
+        groupRef.current.position.y + tipY,
+        position[2],
+      );
     } else {
       pivotRef.current.rotation.z *= 0.9;
     }
   });
-
-  // Strike point — where the pickaxe tip meets the tower
-  const strikePoint: [number, number, number] = [
-    position[0] - 0.6,
-    position[1] + 0.72,
-    position[2],
-  ];
 
   return (
     <>
@@ -170,8 +190,8 @@ export function VoxelPickaxe({ active, position }: VoxelPickaxeProps) {
         </group>
       </group>
 
-      {/* Shards burst from the strike point */}
-      {active && <MiningShards position={strikePoint} active={active} />}
+      {/* Shards burst from the dynamic tip position */}
+      {active && <MiningShards tipRef={tipWorldPos} active={active} />}
     </>
   );
 }

@@ -19,6 +19,7 @@ interface SceneProps {
     phase: string,
   ) => void;
   selectedAgentWallet: string | null;
+  selectedRoundId: string | null;
 }
 
 // ─── Platform positions (3 platforms side by side) ──────────────────
@@ -149,6 +150,7 @@ export function Scene({
   flightRounds,
   onSelectAgent,
   selectedAgentWallet,
+  selectedRoundId,
 }: SceneProps) {
   const { gl } = useThree();
   useEffect(() => {
@@ -251,6 +253,7 @@ export function Scene({
               round={round}
               onSelectAgent={onSelectAgent}
               selectedAgentWallet={selectedAgentWallet}
+              selectedRoundId={selectedRoundId}
               onShake={shake}
             />
             {/* Oracle beam during settling */}

@@ -214,12 +214,37 @@ export default function ArenaPage() {
     query: { enabled: allRoundIds.length > 0 && !!epochOpen },
   });
 
+  // Epoch-wide correct / settled stats
+  const { totalCorrect, totalSettled } = useMemo(() => {
+    let correct = 0, settled = 0;
+    if (allRoundsData) {
+      for (let i = 0; i < allRoundsData.length; i++) {
+        const r = allRoundsData[i]?.result as any;
+        if (!r) continue;
+        if (r.settled) {
+          settled++;
+          correct += Number(r.correctCount ?? 0);
+        }
+      }
+    }
+    return { totalCorrect: correct, totalSettled: settled };
+  }, [allRoundsData]);
+
   const handleSelectAgent = useCallback((agent: AgentInscription, roundId: string, phase: string) => {
     setSelectedAgent({ ...agent, roundId, phase });
   }, []);
 
   const handleCloseInspect = useCallback(() => {
     setSelectedAgent(null);
+  }, []);
+
+  // Esc key closes InspectPanel
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setSelectedAgent(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
   }, []);
 
   return (
@@ -229,11 +254,13 @@ export default function ArenaPage() {
         style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%" }}
         gl={{ antialias: true, alpha: false }}
         onCreated={({ gl }) => { gl.setClearColor("#050302"); }}
+        onPointerMissed={() => setSelectedAgent(null)}
       >
         <Scene
           flightRounds={flightRounds}
           onSelectAgent={handleSelectAgent}
           selectedAgentWallet={selectedAgent?.wallet ?? null}
+          selectedRoundId={selectedAgent?.roundId ?? null}
         />
         <EffectComposer>
           <Bloom luminanceThreshold={0.15} intensity={1.2} mipmapBlur />
@@ -249,6 +276,8 @@ export default function ArenaPage() {
         rewardUsd={rewardRaw !== undefined && custosPrice !== null ? formatCustosUsd(rewardRaw, custosPrice) : undefined}
         stakedAgents={stakedAgents !== undefined ? Number(stakedAgents) : undefined}
         epochTimeLeft={epochTimeLeft}
+        totalCorrect={totalCorrect}
+        totalSettled={totalSettled}
       />
 
       {selectedAgent && (
