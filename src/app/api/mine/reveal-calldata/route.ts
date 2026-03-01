@@ -54,30 +54,89 @@ function deriveSalt(roundId: bigint, wallet: Address): Hex {
   ));
 }
 
-/** Resolve blockchain answer from question JSON */
+/** Convert string to hex for keccak256 */
+function toHexFromStr(s: string): Hex {
+  return `0x${Buffer.from(s, 'utf8').toString('hex')}` as Hex;
+}
+
+/** Resolve blockchain answer from question JSON — mirrors mine-agent.js deriveAnswer */
 async function resolveAnswer(questionJson: string): Promise<string | null> {
   try {
     const q = JSON.parse(questionJson);
     const blockNumber = BigInt(q.blockNumber);
     const field: string = q.fieldDescription;
 
-    const block = await client.getBlock({ blockNumber, includeTransactions: field === 'firstTransactionHash' });
+    const needTxs = field === 'firstTransactionHash' || field === 'lastTransactionHash';
+    const block = await client.getBlock({ blockNumber, includeTransactions: needTxs });
     if (!block) return null;
 
-    if (field === 'firstTransactionHash') {
-      const txs = block.transactions as string[];
-      if (!txs || txs.length === 0) return null;
-      return txs[0] as string;
+    switch (field) {
+      case 'transactionCount':
+        return block.transactions.length.toString();
+      case 'firstTransactionHash': {
+        const txs = block.transactions as unknown[];
+        if (!txs || txs.length === 0) return null;
+        const first = txs[0];
+        return (typeof first === 'string' ? first : (first as { hash: string }).hash).toLowerCase();
+      }
+      case 'lastTransactionHash': {
+        const txs = block.transactions as unknown[];
+        if (!txs || txs.length === 0) return null;
+        const last = txs[txs.length - 1];
+        return (typeof last === 'string' ? last : (last as { hash: string }).hash).toLowerCase();
+      }
+      case 'blockHash':
+        return block.hash.toLowerCase();
+      case 'miner':
+        return block.miner.toLowerCase();
+      case 'parentHash':
+        return block.parentHash.toLowerCase();
+
+      // Compound / expert fields
+      case 'keccak256(blockHash[N] || blockHash[N+1])': {
+        const b2 = await client.getBlock({ blockNumber: blockNumber + 1n });
+        const concatenated = block.hash + b2.hash.slice(2);
+        return keccak256(toHexFromStr(concatenated));
+      }
+      case 'keccak256(txCount|gasUsed)': {
+        const combined = `${block.transactions.length}|${block.gasUsed.toString()}`;
+        return keccak256(toHexFromStr(combined));
+      }
+      case 'keccak256(timestamp|baseFeePerGas|miner)': {
+        const combined = `${block.timestamp.toString()}|${block.baseFeePerGas?.toString() ?? '0'}|${block.miner.toLowerCase()}`;
+        return keccak256(toHexFromStr(combined));
+      }
+
+      // CustosNetwork on-chain fields
+      case 'totalCycles':
+      case 'inscriptionCount': {
+        const cnAbi = [{ name: field, type: 'function' as const, stateMutability: 'view' as const, inputs: [] as const, outputs: [{ type: 'uint256' as const }] }];
+        const val = await rc({ address: CONTRACTS.CUSTOS_PROXY, abi: cnAbi, functionName: field, blockNumber }) as bigint;
+        return val.toString();
+      }
+      case 'agentCount': {
+        const acAbi = [{ name: 'agentCount', type: 'function' as const, stateMutability: 'view' as const, inputs: [] as const, outputs: [{ type: 'uint256' as const }] }];
+        const val = await rc({ address: CONTRACTS.CUSTOS_PROXY, abi: acAbi, functionName: 'agentCount', blockNumber }) as bigint;
+        return val.toString();
+      }
+      case 'chainHead':
+      case 'chainHead(agent#1)':
+      case 'cycleCount(agent#1)': {
+        const regAbi = [{ name: 'agentRegistry', type: 'function' as const, stateMutability: 'view' as const, inputs: [{ name: 'agentId', type: 'uint256' as const }], outputs: [{ type: 'tuple' as const, components: [{ name: 'id', type: 'uint256' as const }, { name: 'owner', type: 'address' as const }, { name: 'chainHead', type: 'uint256' as const }, { name: 'stakedAt', type: 'uint256' as const }, { name: 'lastClaimedAt', type: 'uint256' as const }, { name: 'pendingCycle', type: 'uint256' as const }] }] }];
+        const agent = await rc({ address: CONTRACTS.CUSTOS_PROXY, abi: regAbi, functionName: 'agentRegistry', args: [1n], blockNumber }) as { chainHead: bigint; pendingCycle: bigint };
+        return field.includes('cycleCount') ? agent.pendingCycle.toString() : agent.chainHead.toString();
+      }
+
+      default: break;
     }
 
+    // Generic: numeric/bigint fields (gasUsed, timestamp, gasLimit, baseFeePerGas, etc.)
     const rawValue = (block as Record<string, unknown>)[field];
     if (rawValue === undefined || rawValue === null) return null;
 
-    // Return hex strings as-is (addresses, hashes — do NOT pad; must match oracle's answer)
     if (typeof rawValue === 'string' && rawValue.startsWith('0x')) {
-      return rawValue;
+      return rawValue.toLowerCase();
     }
-    // Numbers/bigints: convert to decimal string (e.g. timestamp, gasUsed)
     if (typeof rawValue === 'bigint' || typeof rawValue === 'number') {
       return BigInt(rawValue).toString(10);
     }
@@ -196,18 +255,30 @@ async function handler(req: NextRequest) {
     const inReveal     = now >= Number(r.commitCloseAt) && now < Number(r.revealCloseAt);
     const revealSecsLeft = Math.max(0, Number(r.revealCloseAt) - now);
 
-    // 2. Fetch question content from oracle inscription (must be revealed by oracle)
+    // 2. Parse question from questionUri
     let questionJson: string | null = null;
     let question: Record<string, unknown> | null = null;
-    try {
-      const insResult = await rc({ address: CONTRACTS.CUSTOS_PROXY, abi: CUSTOS_PROXY_ABI, functionName: 'getInscriptionContent', args: [r.oracleInscriptionId] });
-      const revealed = Array.isArray(insResult) ? insResult[0] : insResult.revealed;
-      const content  = Array.isArray(insResult) ? insResult[1] : insResult.content;
-      if (revealed && content) {
-        questionJson = content as string;
-        question     = JSON.parse(content as string);
-      }
-    } catch { /* not yet revealed */ }
+    const uriMatch = r.questionUri.match(/custos:\/\/mine\/q\/(\d+)\/([^\/]+)\/(\d+)/);
+    if (uriMatch) {
+      question = {
+        roundNumber: parseInt(uriMatch[1]),
+        fieldDescription: uriMatch[2],
+        blockNumber: parseInt(uriMatch[3]),
+        question: `What is the ${uriMatch[2]} of block ${uriMatch[3]}?`,
+      };
+      questionJson = JSON.stringify(question);
+    } else {
+      // Fallback: old inscription-based format
+      try {
+        const insResult = await rc({ address: CONTRACTS.CUSTOS_PROXY, abi: CUSTOS_PROXY_ABI, functionName: 'getInscriptionContent', args: [r.oracleInscriptionId] });
+        const revealed = Array.isArray(insResult) ? insResult[0] : insResult.revealed;
+        const content  = Array.isArray(insResult) ? insResult[1] : insResult.content;
+        if (revealed && content) {
+          questionJson = content as string;
+          question     = JSON.parse(content as string);
+        }
+      } catch { /* not yet revealed */ }
+    }
 
     // 3. Resolve answer
     const answer = questionJson ? await resolveAnswer(questionJson) : null;
