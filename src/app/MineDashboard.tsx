@@ -310,21 +310,26 @@ export function MineDashboard() {
   });
   const round1 = r1Data?.[0]?.result as any;
 
-  // Total credits — all rounds 1..N, refetch only when roundCount changes (a new round means prev settled)
+  // All rounds — for RecentRounds history panel
   const allRoundIds = roundCount && roundCount > 0n
     ? Array.from({ length: Number(roundCount) }, (_, i) => BigInt(i + 1))
     : [];
   const { data: allRoundsData } = useReadContracts({
     contracts: allRoundIds.map(id => ({ ...c, functionName: "getRound" as const, args: [id] })),
-    // No timed refetchInterval — wagmi will re-run when roundCount changes (deps change = new query key)
     query: { enabled: allRoundIds.length > 0 && !!epochOpen },
   });
-  const totalCorrectAnswers = allRoundsData
-    ? (allRoundsData as any[]).reduce((sum, d) => {
-        const r = d?.result as any;
-        return sum + (r?.settled && r?.correctCount ? Number(r.correctCount) : 0);
-      }, 0)
-    : 0;
+
+  // Total credits — tier-weighted, fetched from API (recalculated when roundCount changes)
+  const [tierWeightedCredits, setTierWeightedCredits] = useState<number>(0);
+  useEffect(() => {
+    if (!epochId || !epochOpen) return;
+    const eid = Number(epochId);
+    if (eid <= 0) return;
+    fetch(`/api/mine/epoch-credits?epochId=${eid}`)
+      .then(r => r.json())
+      .then(d => { if (d.totalCredits !== undefined) setTierWeightedCredits(d.totalCredits); })
+      .catch(() => {});
+  }, [epochId, epochOpen, roundCount]);
 
   // Epoch end
   const epochEndAt: number | undefined = (() => {
@@ -337,7 +342,7 @@ export function MineDashboard() {
 
   const totalCredits = epoch?.totalCredits !== undefined && epoch.totalCredits > 0n
     ? epoch.totalCredits.toString()
-    : totalCorrectAnswers > 0 ? totalCorrectAnswers.toString() : "0";
+    : tierWeightedCredits > 0 ? tierWeightedCredits.toString() : "0";
 
   const rewardRaw = (epoch?.rewardPool !== undefined && epoch.rewardPool > 0n)
     ? epoch.rewardPool
