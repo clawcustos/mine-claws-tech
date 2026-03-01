@@ -161,13 +161,14 @@ const DIFF_COLOR: Record<string, string> = {
 };
 
 function RecentRounds({
-  allRoundsData, questionCache, fetchQuestion, roundCount, epochId,
+  allRoundsData, questionCache, fetchQuestion, roundCount, epochId, epochStartIndex,
 }: {
   allRoundsData: any;
   questionCache: Record<string, string>;
   fetchQuestion: (id: string) => void;
   roundCount?: bigint;
   epochId?: bigint;
+  epochStartIndex: number;
 }) {
   const [expanded, setExpanded] = useState(false);
 
@@ -224,7 +225,7 @@ function RecentRounds({
           }}>
             <div>
               <div style={{ fontSize: 9, color: C.label, letterSpacing: "0.06em" }}>ROUND</div>
-              <div style={{ fontSize: 12, fontWeight: 700, color: "#fff" }}>#{rid}</div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "#fff" }}>#{Number(rid) - epochStartIndex}</div>
               {diff && (
                 <div style={{ fontSize: 9, color: DIFF_COLOR[diff] ?? C.dim, marginTop: 2, letterSpacing: "0.06em" }}>
                   {diff}
@@ -536,9 +537,9 @@ export function MineDashboard() {
 
           {epochOpen ? (
             <>
-              <FlightRow label="latest" phase={phaseN.phase}  roundId={roundN?.roundId?.toString()}  countdown={phaseN.countdown}  countdownColor={phaseN.countdownColor}  question={qN}  settled={roundN?.settled}  expired={roundN?.expired}  awaitingOracle={awaitingN}  correctCount={roundN?.settled  ? Number(roundN.correctCount)  : undefined} answer={roundN?.settled  ? roundN.revealedAnswer  : undefined} />
-              <FlightRow label="N-1"    phase={phaseN1.phase} roundId={roundN1?.roundId?.toString()} countdown={phaseN1.countdown} countdownColor={phaseN1.countdownColor} question={qN1} settled={roundN1?.settled} expired={roundN1?.expired} awaitingOracle={awaitingN1} correctCount={roundN1?.settled ? Number(roundN1.correctCount) : undefined} answer={roundN1?.settled ? roundN1.revealedAnswer : undefined} />
-              <FlightRow label="N-2"    phase={phaseN2.phase} roundId={roundN2?.roundId?.toString()} countdown={phaseN2.countdown} countdownColor={phaseN2.countdownColor} question={qN2} settled={roundN2?.settled} expired={roundN2?.expired} awaitingOracle={awaitingN2} correctCount={roundN2?.settled ? Number(roundN2.correctCount) : undefined} answer={roundN2?.settled ? roundN2.revealedAnswer : undefined} />
+              <FlightRow label="latest" phase={phaseN.phase}  roundId={roundN?.roundId  ? String(Number(roundN.roundId)  - epochStartIndex) : undefined}  countdown={phaseN.countdown}  countdownColor={phaseN.countdownColor}  question={qN}  settled={roundN?.settled}  expired={roundN?.expired}  awaitingOracle={awaitingN}  correctCount={roundN?.settled  ? Number(roundN.correctCount)  : undefined} answer={roundN?.settled  ? roundN.revealedAnswer  : undefined} />
+              <FlightRow label="N-1"    phase={phaseN1.phase} roundId={roundN1?.roundId ? String(Number(roundN1.roundId) - epochStartIndex) : undefined} countdown={phaseN1.countdown} countdownColor={phaseN1.countdownColor} question={qN1} settled={roundN1?.settled} expired={roundN1?.expired} awaitingOracle={awaitingN1} correctCount={roundN1?.settled ? Number(roundN1.correctCount) : undefined} answer={roundN1?.settled ? roundN1.revealedAnswer : undefined} />
+              <FlightRow label="N-2"    phase={phaseN2.phase} roundId={roundN2?.roundId ? String(Number(roundN2.roundId) - epochStartIndex) : undefined} countdown={phaseN2.countdown} countdownColor={phaseN2.countdownColor} question={qN2} settled={roundN2?.settled} expired={roundN2?.expired} awaitingOracle={awaitingN2} correctCount={roundN2?.settled ? Number(roundN2.correctCount) : undefined} answer={roundN2?.settled ? roundN2.revealedAnswer : undefined} />
             </>
           ) : (
             <div style={{ fontSize: 13, color: C.dim, paddingTop: 8 }}>no epoch open</div>
@@ -552,6 +553,7 @@ export function MineDashboard() {
           fetchQuestion={fetchQuestion}
           roundCount={roundCount}
           epochId={epochId}
+          epochStartIndex={epochStartIndex}
         />
 
         {/* Participate CTAs */}

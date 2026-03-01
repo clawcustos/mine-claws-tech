@@ -485,7 +485,7 @@ export function RoundPlatform({ position, round, onSelectAgent, selectedAgentWal
           fontFamily: "monospace", whiteSpace: "nowrap", userSelect: "none",
         }}>
           <span style={{ fontSize: 11, color: phaseColor, fontWeight: 700 }}>
-            #{round.roundId}
+            #{round.displayRoundNum ?? round.roundId}
           </span>
           <span style={{
             fontSize: 9, color: "#000", background: phaseColor,

@@ -143,63 +143,7 @@ export default function ArenaPage() {
   const phaseN1 = getPhase(roundN1);
   const phaseN2 = getPhase(roundN2);
 
-  // Build live flight rounds from on-chain data
-  const liveFlightRounds: FlightRound[] = useMemo(() => {
-    const rounds: FlightRound[] = [];
-    if (roundN) {
-      rounds.push({
-        roundId: roundN.roundId.toString(),
-        phase: phaseN.phase, countdown: phaseN.countdown,
-        question: questionCache[roundN.roundId.toString()] ?? null,
-        revealedAnswer: roundN.revealedAnswer || null,
-        correctCount: Number(roundN.correctCount),
-        agents: insN.data?.agents ?? [],
-      });
-    }
-    if (roundN1) {
-      rounds.push({
-        roundId: roundN1.roundId.toString(),
-        phase: phaseN1.phase, countdown: phaseN1.countdown,
-        question: questionCache[roundN1.roundId.toString()] ?? null,
-        revealedAnswer: roundN1.revealedAnswer || null,
-        correctCount: Number(roundN1.correctCount),
-        agents: insN1.data?.agents ?? [],
-      });
-    }
-    if (roundN2) {
-      rounds.push({
-        roundId: roundN2.roundId.toString(),
-        phase: phaseN2.phase, countdown: phaseN2.countdown,
-        question: questionCache[roundN2.roundId.toString()] ?? null,
-        revealedAnswer: roundN2.revealedAnswer || null,
-        correctCount: Number(roundN2.correctCount),
-        agents: insN2.data?.agents ?? [],
-      });
-    }
-    return rounds;
-  }, [
-    roundN, roundN1, roundN2,
-    phaseN.phase, phaseN.countdown, phaseN1.phase, phaseN1.countdown, phaseN2.phase, phaseN2.countdown,
-    questionCache, insN.data, insN1.data, insN2.data,
-  ]);
-
-  // Always show live on-chain rounds (no fallback to old DB rounds)
-  const flightRounds: FlightRound[] = liveFlightRounds;
-
-  // Epoch timing
-  const epochEndAt: number | undefined = (() => {
-    if (epoch?.endAt && Number(epoch.endAt) > 1_700_000_000) return Number(epoch.endAt);
-    if (epoch?.startAt && Number(epoch.startAt) > 0)
-      return Number(epoch.startAt) + ROUNDS_PER_EPOCH * WINDOW;
-    return undefined;
-  })();
-  const epochTimeLeft = epochEndAt ? Math.max(0, epochEndAt - now) : 0;
-
-  const rewardRaw = (epoch?.rewardPool !== undefined && epoch.rewardPool > 0n)
-    ? epoch.rewardPool
-    : (rewardBuf !== undefined && rewardBuf > 0n ? rewardBuf : undefined);
-
-  // All rounds for timeline
+  // All rounds for timeline + epoch stats (must be before liveFlightRounds)
   const allRoundIds = roundCount && roundCount > 0n
     ? Array.from({ length: Number(roundCount) }, (_, i) => BigInt(i + 1))
     : [];
@@ -226,6 +170,65 @@ export default function ArenaPage() {
     }
     return { totalCorrect: correct, totalSettled: settled, epochStartIndex: startIdx };
   }, [allRoundsData, epochId]);
+
+  // Build live flight rounds from on-chain data
+  const liveFlightRounds: FlightRound[] = useMemo(() => {
+    const rounds: FlightRound[] = [];
+    if (roundN) {
+      rounds.push({
+        roundId: roundN.roundId.toString(),
+        displayRoundNum: Number(roundN.roundId) - epochStartIndex,
+        phase: phaseN.phase, countdown: phaseN.countdown,
+        question: questionCache[roundN.roundId.toString()] ?? null,
+        revealedAnswer: roundN.revealedAnswer || null,
+        correctCount: Number(roundN.correctCount),
+        agents: insN.data?.agents ?? [],
+      });
+    }
+    if (roundN1) {
+      rounds.push({
+        roundId: roundN1.roundId.toString(),
+        displayRoundNum: Number(roundN1.roundId) - epochStartIndex,
+        phase: phaseN1.phase, countdown: phaseN1.countdown,
+        question: questionCache[roundN1.roundId.toString()] ?? null,
+        revealedAnswer: roundN1.revealedAnswer || null,
+        correctCount: Number(roundN1.correctCount),
+        agents: insN1.data?.agents ?? [],
+      });
+    }
+    if (roundN2) {
+      rounds.push({
+        roundId: roundN2.roundId.toString(),
+        displayRoundNum: Number(roundN2.roundId) - epochStartIndex,
+        phase: phaseN2.phase, countdown: phaseN2.countdown,
+        question: questionCache[roundN2.roundId.toString()] ?? null,
+        revealedAnswer: roundN2.revealedAnswer || null,
+        correctCount: Number(roundN2.correctCount),
+        agents: insN2.data?.agents ?? [],
+      });
+    }
+    return rounds;
+  }, [
+    roundN, roundN1, roundN2, epochStartIndex,
+    phaseN.phase, phaseN.countdown, phaseN1.phase, phaseN1.countdown, phaseN2.phase, phaseN2.countdown,
+    questionCache, insN.data, insN1.data, insN2.data,
+  ]);
+
+  // Always show live on-chain rounds (no fallback to old DB rounds)
+  const flightRounds: FlightRound[] = liveFlightRounds;
+
+  // Epoch timing
+  const epochEndAt: number | undefined = (() => {
+    if (epoch?.endAt && Number(epoch.endAt) > 1_700_000_000) return Number(epoch.endAt);
+    if (epoch?.startAt && Number(epoch.startAt) > 0)
+      return Number(epoch.startAt) + ROUNDS_PER_EPOCH * WINDOW;
+    return undefined;
+  })();
+  const epochTimeLeft = epochEndAt ? Math.max(0, epochEndAt - now) : 0;
+
+  const rewardRaw = (epoch?.rewardPool !== undefined && epoch.rewardPool > 0n)
+    ? epoch.rewardPool
+    : (rewardBuf !== undefined && rewardBuf > 0n ? rewardBuf : undefined);
 
   const handleSelectAgent = useCallback((agent: AgentInscription, roundId: string, phase: string) => {
     setSelectedAgent({ ...agent, roundId, phase });
@@ -299,6 +302,7 @@ export default function ArenaPage() {
         <InspectPanel
           agent={selectedAgent}
           roundId={selectedAgent.roundId}
+          displayRoundNum={Number(selectedAgent.roundId) - epochStartIndex}
           phase={selectedAgent.phase}
           onClose={handleCloseInspect}
         />

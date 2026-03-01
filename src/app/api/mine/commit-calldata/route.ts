@@ -86,7 +86,12 @@ async function getWalletPrevHash(wallet: Address): Promise<Hex> {
   }
 }
 
-/** Resolve blockchain answer from question JSON */
+/** Convert string to hex for keccak256 */
+function toHexFromStr(s: string): Hex {
+  return `0x${Buffer.from(s, 'utf8').toString('hex')}` as Hex;
+}
+
+/** Resolve blockchain answer from question JSON — mirrors mine-agent.js deriveAnswer */
 async function resolveAnswer(questionJson: string): Promise<string | null> {
   try {
     const q = JSON.parse(questionJson);
@@ -119,6 +124,42 @@ async function resolveAnswer(questionJson: string): Promise<string | null> {
         return block.miner.toLowerCase();
       case 'parentHash':
         return block.parentHash.toLowerCase();
+
+      // ── Compound / expert fields ──────────────────────────────────────────
+      case 'keccak256(blockHash[N] || blockHash[N+1])': {
+        const b2 = await client.getBlock({ blockNumber: blockNumber + 1n });
+        const concatenated = block.hash + b2.hash.slice(2);
+        return keccak256(toHexFromStr(concatenated));
+      }
+      case 'keccak256(txCount|gasUsed)': {
+        const combined = `${block.transactions.length}|${block.gasUsed.toString()}`;
+        return keccak256(toHexFromStr(combined));
+      }
+      case 'keccak256(timestamp|baseFeePerGas|miner)': {
+        const combined = `${block.timestamp.toString()}|${block.baseFeePerGas?.toString() ?? '0'}|${block.miner.toLowerCase()}`;
+        return keccak256(toHexFromStr(combined));
+      }
+
+      // ── CustosNetwork on-chain fields ─────────────────────────────────────
+      case 'totalCycles':
+      case 'inscriptionCount': {
+        const cnAbi = [{ name: field, type: 'function' as const, stateMutability: 'view' as const, inputs: [] as const, outputs: [{ type: 'uint256' as const }] }];
+        const val = await rc({ address: CONTRACTS.CUSTOS_PROXY, abi: cnAbi, functionName: field, blockNumber }) as bigint;
+        return val.toString();
+      }
+      case 'agentCount': {
+        const acAbi = [{ name: 'agentCount', type: 'function' as const, stateMutability: 'view' as const, inputs: [] as const, outputs: [{ type: 'uint256' as const }] }];
+        const val = await rc({ address: CONTRACTS.CUSTOS_PROXY, abi: acAbi, functionName: 'agentCount', blockNumber }) as bigint;
+        return val.toString();
+      }
+      case 'chainHead':
+      case 'chainHead(agent#1)':
+      case 'cycleCount(agent#1)': {
+        const regAbi = [{ name: 'agentRegistry', type: 'function' as const, stateMutability: 'view' as const, inputs: [{ name: 'agentId', type: 'uint256' as const }], outputs: [{ type: 'tuple' as const, components: [{ name: 'id', type: 'uint256' as const }, { name: 'owner', type: 'address' as const }, { name: 'chainHead', type: 'uint256' as const }, { name: 'stakedAt', type: 'uint256' as const }, { name: 'lastClaimedAt', type: 'uint256' as const }, { name: 'pendingCycle', type: 'uint256' as const }] }] }];
+        const agent = await rc({ address: CONTRACTS.CUSTOS_PROXY, abi: regAbi, functionName: 'agentRegistry', args: [1n], blockNumber }) as { chainHead: bigint; pendingCycle: bigint };
+        return field.includes('cycleCount') ? agent.pendingCycle.toString() : agent.chainHead.toString();
+      }
+
       default: break;
     }
 

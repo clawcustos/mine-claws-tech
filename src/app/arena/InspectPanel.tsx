@@ -8,6 +8,7 @@ import type { AgentInscription } from "@/hooks/useRoundInscriptions";
 interface InspectPanelProps {
   agent: AgentInscription;
   roundId: string;
+  displayRoundNum?: number;
   phase: string;
   onClose: () => void;
 }
@@ -20,7 +21,7 @@ const PHASE_COLORS: Record<string, string> = {
   expired: "#666666",
 };
 
-export function InspectPanel({ agent, roundId, phase, onClose }: InspectPanelProps) {
+export function InspectPanel({ agent, roundId, displayRoundNum, phase, onClose }: InspectPanelProps) {
   const [isMobile, setIsMobile] = useState(false);
   const [copied, setCopied] = useState(false);
 
@@ -95,7 +96,7 @@ export function InspectPanel({ agent, roundId, phase, onClose }: InspectPanelPro
         display: "flex", alignItems: "center", gap: 8,
         padding: "10px 12px", borderBottom: "1px solid #1a1a1a",
       }}>
-        <span style={{ fontSize: 11, color: "#aaa", fontWeight: 600 }}>#{roundId}</span>
+        <span style={{ fontSize: 11, color: "#aaa", fontWeight: 600 }}>#{displayRoundNum ?? roundId}</span>
         <span style={{
           fontSize: 9, color: "#000", background: phaseColor,
           padding: "1px 6px", borderRadius: 3, fontWeight: 700,
