@@ -27,6 +27,7 @@ interface CachedAgent {
 interface CacheEntry {
   settled: boolean;
   expired: boolean;
+  epochId: number;
   commitCloseAt: number;
   revealCloseAt: number;
   revealedAnswer: string | null;
@@ -170,6 +171,7 @@ async function fetchFromChain(roundId: number): Promise<CacheEntry | null> {
   const entry: CacheEntry = {
     settled: round.settled,
     expired: round.expired,
+    epochId: Number(round.epochId),
     commitCloseAt: Number(round.commitCloseAt),
     revealCloseAt: Number(round.revealCloseAt),
     revealedAnswer: round.revealedAnswer || null,
@@ -197,11 +199,12 @@ function persistToDb(roundId: number, entry: CacheEntry) {
         answer_hash, oracle_inscription_id, settled, expired, revealed_answer,
         correct_count, question_text
       ) VALUES (
-        ${roundId}, ${0}, ${0}, ${entry.commitCloseAt}, ${entry.revealCloseAt},
+        ${roundId}, ${entry.epochId}, ${0}, ${entry.commitCloseAt}, ${entry.revealCloseAt},
         ${""}, ${entry.oracleInscriptionId}, ${entry.settled}, ${entry.expired},
         ${entry.revealedAnswer}, ${entry.correctCount}, ${entry.questionText}
       )
       ON CONFLICT (round_id) DO UPDATE SET
+        epoch_id = EXCLUDED.epoch_id,
         settled = EXCLUDED.settled,
         expired = EXCLUDED.expired,
         revealed_answer = COALESCE(EXCLUDED.revealed_answer, rounds.revealed_answer),
@@ -210,7 +213,14 @@ function persistToDb(roundId: number, entry: CacheEntry) {
         oracle_inscription_id = EXCLUDED.oracle_inscription_id
     `.catch(() => {});
 
+    // Compute correct flag when round is settled and we have the revealed answer
+    const canComputeCorrect = (entry.settled || entry.expired) && entry.revealedAnswer;
+
     for (const a of entry.agents) {
+      const correct = canComputeCorrect && a.revealed && a.content
+        ? a.content.toLowerCase() === entry.revealedAnswer!.toLowerCase()
+        : null;
+
       sql`
         INSERT INTO inscriptions (
           inscription_id, round_id, agent_id, wallet, block_type,
@@ -219,11 +229,12 @@ function persistToDb(roundId: number, entry: CacheEntry) {
         ) VALUES (
           ${a.inscriptionId}, ${roundId}, ${0}, ${a.wallet}, ${"mine-commit"},
           ${""}, ${""}, ${""}, ${""}, ${0},
-          ${a.revealed}, ${a.content}, ${null}
+          ${a.revealed}, ${a.content}, ${correct}
         )
         ON CONFLICT (inscription_id) DO UPDATE SET
           revealed = EXCLUDED.revealed,
-          content = COALESCE(EXCLUDED.content, inscriptions.content)
+          content = COALESCE(EXCLUDED.content, inscriptions.content),
+          correct = COALESCE(EXCLUDED.correct, inscriptions.correct)
       `.catch(() => {});
     }
   } catch { /* DB down — no problem, chain is source of truth */ }

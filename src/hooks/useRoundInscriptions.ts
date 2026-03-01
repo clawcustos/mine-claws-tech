@@ -61,11 +61,10 @@ export function useRoundInscriptions(roundId: string | undefined) {
       return;
     }
 
-    // Reset on roundId change
-    if (prevRoundId.current !== roundId) {
-      setData(null);
-      prevRoundId.current = roundId;
-    }
+    // Track roundId change — do NOT clear data here.
+    // Keep stale data visible until the new fetch completes,
+    // so cubes don't disappear during the ~300ms fetch gap.
+    prevRoundId.current = roundId;
 
     setLoading(true);
     fetchData(roundId).finally(() => setLoading(false));
