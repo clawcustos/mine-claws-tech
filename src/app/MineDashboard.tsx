@@ -161,12 +161,13 @@ const DIFF_COLOR: Record<string, string> = {
 };
 
 function RecentRounds({
-  allRoundsData, questionCache, fetchQuestion, roundCount,
+  allRoundsData, questionCache, fetchQuestion, roundCount, epochId,
 }: {
   allRoundsData: any;
   questionCache: Record<string, string>;
   fetchQuestion: (id: string) => void;
   roundCount?: bigint;
+  epochId?: bigint;
 }) {
   const [expanded, setExpanded] = useState(false);
 
@@ -178,12 +179,13 @@ function RecentRounds({
     for (let i = data.length - 1; i >= 0; i--) {
       const r = data[i]?.result;
       if (!r || !r.settled) continue;
+      if (epochId && r.epochId !== undefined && BigInt(r.epochId) !== epochId) continue;
       if (BigInt(r.roundId) >= roundCount - 2n) continue;
       out.push(r);
       if (out.length >= 10) break;
     }
     return out;
-  }, [allRoundsData, roundCount]);
+  }, [allRoundsData, roundCount, epochId]);
 
   const shown = expanded ? settled : settled.slice(0, 3);
   const shownIds = shown.map((r: any) => r.roundId.toString()).join(",");
@@ -302,14 +304,6 @@ export function MineDashboard() {
   const roundN1 = rN1 ? (flightData?.[idx++]?.result as any) : undefined;
   const roundN2 = rN2 ? (flightData?.[idx++]?.result as any) : undefined;
 
-  // Round 1 for epoch-end derivation — only needs to load once
-  const { data: r1Data } = useReadContracts({
-    contracts: epochOpen && roundCount && roundCount > 0n
-      ? [{ ...c, functionName: "getRound", args: [1n] }] : [],
-    query: { enabled: !!epochOpen && !!roundCount && roundCount! > 0n, refetchInterval: 0 },
-  });
-  const round1 = r1Data?.[0]?.result as any;
-
   // All rounds — for RecentRounds history panel
   const allRoundIds = roundCount && roundCount > 0n
     ? Array.from({ length: Number(roundCount) }, (_, i) => BigInt(i + 1))
@@ -318,6 +312,18 @@ export function MineDashboard() {
     contracts: allRoundIds.map(id => ({ ...c, functionName: "getRound" as const, args: [id] })),
     query: { enabled: allRoundIds.length > 0 && !!epochOpen },
   });
+
+  // Find the first round of the current epoch for epoch-relative counting
+  const epochStartIndex = useMemo(() => {
+    if (!allRoundsData || !epochId) return 0;
+    for (let i = 0; i < (allRoundsData as any[]).length; i++) {
+      const r = (allRoundsData as any[])[i]?.result as any;
+      if (r && r.epochId !== undefined && BigInt(r.epochId) === epochId) return i;
+    }
+    return 0;
+  }, [allRoundsData, epochId]);
+
+  const epochRoundCount = roundCount ? Number(roundCount) - epochStartIndex : 0;
 
   // Total credits — tier-weighted, fetched from API (recalculated when roundCount changes)
   const [tierWeightedCredits, setTierWeightedCredits] = useState<number>(0);
@@ -334,8 +340,8 @@ export function MineDashboard() {
   // Epoch end
   const epochEndAt: number | undefined = (() => {
     if (epoch?.endAt && Number(epoch.endAt) > 1_700_000_000) return Number(epoch.endAt);
-    if (round1?.commitOpenAt && Number(round1.commitOpenAt) > 0)
-      return Number(round1.commitOpenAt) + ROUNDS_PER_EPOCH * WINDOW;
+    if (epoch?.startAt && Number(epoch.startAt) > 0)
+      return Number(epoch.startAt) + ROUNDS_PER_EPOCH * WINDOW;
     return undefined;
   })();
   const epochTimeLeft = epochEndAt ? Math.max(0, epochEndAt - now) : 0;
@@ -490,7 +496,7 @@ export function MineDashboard() {
 
         {/* Stats row 2 */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 1, background: C.border, marginBottom: 20 }}>
-          <Stat label="epoch"            value={epochLabel}  sub={`round ${roundCount?.toString() ?? "—"} / ${ROUNDS_PER_EPOCH}`} loading={data === undefined} />
+          <Stat label="epoch"            value={epochLabel}  sub={`round ${epochRoundCount > 0 ? epochRoundCount : "—"} / ${ROUNDS_PER_EPOCH}`} loading={data === undefined} />
           <Stat label="active miners"    value={stakedAgents !== undefined ? stakedAgents.toString() : "—"} sub="staked agents" loading={data === undefined} />
           <Stat label="rounds in flight" value={rN ? "3" : rN1 ? "2" : "0"} sub="simultaneous" loading={data === undefined} />
         </div>
@@ -545,6 +551,7 @@ export function MineDashboard() {
           questionCache={questionCache}
           fetchQuestion={fetchQuestion}
           roundCount={roundCount}
+          epochId={epochId}
         />
 
         {/* Participate CTAs */}

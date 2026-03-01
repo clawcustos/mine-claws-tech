@@ -5,28 +5,33 @@ import { ROUNDS_PER_EPOCH } from "@/lib/constants";
 
 interface EpochTimelineProps {
   allRoundsData: any;
+  epochStartIndex: number;
   roundCount: number;
   currentFlightIds: string[];
 }
 
-export function EpochTimeline({ allRoundsData, roundCount, currentFlightIds }: EpochTimelineProps) {
+export function EpochTimeline({ allRoundsData, epochStartIndex, roundCount, currentFlightIds }: EpochTimelineProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const rounds = useMemo(() => {
     const arr: Array<{
       id: number;
+      globalId: number;
       settled: boolean;
       expired: boolean;
       correctCount: number;
       isFlight: boolean;
     }> = [];
 
-    for (let i = 1; i <= ROUNDS_PER_EPOCH; i++) {
-      const data = allRoundsData?.[i - 1]?.result as any;
-      const isFlight = currentFlightIds.includes(i.toString());
+    for (let i = 0; i < ROUNDS_PER_EPOCH; i++) {
+      const globalIdx = epochStartIndex + i;
+      const data = allRoundsData?.[globalIdx]?.result as any;
+      const globalRoundId = globalIdx + 1;
+      const isFlight = currentFlightIds.includes(globalRoundId.toString());
 
       arr.push({
-        id: i,
+        id: i + 1,
+        globalId: globalRoundId,
         settled: data?.settled ?? false,
         expired: data?.expired ?? false,
         correctCount: data ? Number(data.correctCount ?? 0) : 0,
@@ -35,7 +40,7 @@ export function EpochTimeline({ allRoundsData, roundCount, currentFlightIds }: E
     }
 
     return arr;
-  }, [allRoundsData, currentFlightIds]);
+  }, [allRoundsData, epochStartIndex, currentFlightIds]);
 
   // Auto-scroll to current rounds
   useEffect(() => {

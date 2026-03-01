@@ -75,13 +75,7 @@ export default function ArenaPage() {
   const roundN1 = rN1 ? (flightData?.[idx++]?.result as any) : undefined;
   const roundN2 = rN2 ? (flightData?.[idx++]?.result as any) : undefined;
 
-  // Round 1 for epoch end
-  const { data: r1Data } = useReadContracts({
-    contracts: epochOpen && roundCount && roundCount > 0n
-      ? [{ ...c, functionName: "getRound", args: [1n] }] : [],
-    query: { enabled: !!epochOpen && !!roundCount && roundCount! > 0n, refetchInterval: 0 },
-  });
-  const round1 = r1Data?.[0]?.result as any;
+  // (epoch end derived from epoch.startAt or epoch.endAt — no round1 needed)
 
   // Question fetching
   const [questionCache, setQuestionCache] = useState<Record<string, string>>({});
@@ -195,8 +189,8 @@ export default function ArenaPage() {
   // Epoch timing
   const epochEndAt: number | undefined = (() => {
     if (epoch?.endAt && Number(epoch.endAt) > 1_700_000_000) return Number(epoch.endAt);
-    if (round1?.commitOpenAt && Number(round1.commitOpenAt) > 0)
-      return Number(round1.commitOpenAt) + ROUNDS_PER_EPOCH * WINDOW;
+    if (epoch?.startAt && Number(epoch.startAt) > 0)
+      return Number(epoch.startAt) + ROUNDS_PER_EPOCH * WINDOW;
     return undefined;
   })();
   const epochTimeLeft = epochEndAt ? Math.max(0, epochEndAt - now) : 0;
@@ -214,21 +208,24 @@ export default function ArenaPage() {
     query: { enabled: allRoundIds.length > 0 && !!epochOpen },
   });
 
-  // Epoch-wide correct / settled stats
-  const { totalCorrect, totalSettled } = useMemo(() => {
-    let correct = 0, settled = 0;
-    if (allRoundsData) {
+  // Epoch-wide correct / settled stats — filtered to current epoch
+  const { totalCorrect, totalSettled, epochStartIndex } = useMemo(() => {
+    let correct = 0, settled = 0, startIdx = 0;
+    let foundStart = false;
+    if (allRoundsData && epochId) {
       for (let i = 0; i < allRoundsData.length; i++) {
         const r = allRoundsData[i]?.result as any;
         if (!r) continue;
+        if (r.epochId !== undefined && BigInt(r.epochId) !== epochId) continue;
+        if (!foundStart) { startIdx = i; foundStart = true; }
         if (r.settled) {
           settled++;
           correct += Number(r.correctCount ?? 0);
         }
       }
     }
-    return { totalCorrect: correct, totalSettled: settled };
-  }, [allRoundsData]);
+    return { totalCorrect: correct, totalSettled: settled, epochStartIndex: startIdx };
+  }, [allRoundsData, epochId]);
 
   const handleSelectAgent = useCallback((agent: AgentInscription, roundId: string, phase: string) => {
     setSelectedAgent({ ...agent, roundId, phase });
@@ -289,7 +286,7 @@ export default function ArenaPage() {
       <StatsBar
         epochId={epochId?.toString()}
         epochOpen={epochOpen}
-        roundCount={roundCount ? Number(roundCount) : undefined}
+        roundCount={roundCount ? Number(roundCount) - epochStartIndex : undefined}
         rewardPool={rewardRaw !== undefined ? formatCustos(rewardRaw) : "—"}
         rewardUsd={rewardRaw !== undefined && custosPrice !== null ? formatCustosUsd(rewardRaw, custosPrice) : undefined}
         stakedAgents={stakedAgents !== undefined ? Number(stakedAgents) : undefined}
@@ -309,7 +306,8 @@ export default function ArenaPage() {
 
       <EpochTimeline
         allRoundsData={allRoundsData}
-        roundCount={roundCount ? Number(roundCount) : 0}
+        epochStartIndex={epochStartIndex}
+        roundCount={roundCount ? Number(roundCount) - epochStartIndex : 0}
         currentFlightIds={flightRounds.map((r) => r.roundId)}
       />
     </div>
